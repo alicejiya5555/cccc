@@ -22,37 +22,43 @@ const timeframes = {
   "4h": "4h"
 };
 
-// Get CMC price
-async function getPrice(symbol) {
+async function getPriceData(symbol) {
   try {
-    const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbol}`;
-    const res = await axios.get(url, {
-      headers: { "X-CMC_PRO_API_KEY": CMC_API_KEY }
-    });
-    const data = res.data.data[symbol];
-    return {
-      price: data.quote.USD.price.toFixed(2),
-      high: data.quote.USD.high_24h?.toFixed(2),
-      low: data.quote.USD.low_24h?.toFixed(2)
-    };
-  } catch (e) {
-    return { error: "Price error" };
+    const [priceRes, ohlcvRes] = await Promise.all([
+      axios.get(`https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbol}`, {
+        headers: { "X-CMC_PRO_API_KEY": CMC_API_KEY }
+      }),
+      axios.get(`https://pro-api.coinmarketcap.com/v1/cryptocurrency/ohlcv/latest?symbol=${symbol}`, {
+        headers: { "X-CMC_PRO_API_KEY": CMC_API_KEY }
+      })
+    ]);
+
+    const price = priceRes.data.data[symbol].quote.USD.price.toFixed(2);
+    const high = ohlcvRes.data.data[symbol].quote.USD.high.toFixed(2);
+    const low = ohlcvRes.data.data[symbol].quote.USD.low.toFixed(2);
+
+    return { price, high, low };
+  } catch (err) {
+    console.error("CMC error:", err.message);
+    return { price: "N/A", high: "N/A", low: "N/A" };
   }
 }
 
-// Get Indicator
 async function getIndicator(name, symbol, interval, extra = "") {
   try {
     const url = `https://api.twelvedata.com/${name}?symbol=${symbol}&interval=${interval}&apikey=${TWELVE_API_KEY}${extra}`;
     const res = await axios.get(url);
-    return res.data;
+    if (res.data && !res.data.status) return res.data;
+    console.error(`${name} failed:`, res.data);
+    return null;
   } catch (err) {
-    return { error: `${name} error` };
+    console.error(`${name} error:`, err.message);
+    return null;
   }
 }
 
-// Format message
 function formatMsg(asset, interval, priceData, indicators) {
+  const bb = indicators.bbands || {};
   return `
 📊 *${asset.toUpperCase()} ${interval} Analysis*
 
@@ -63,36 +69,34 @@ function formatMsg(asset, interval, priceData, indicators) {
 📈 *Indicators:*
 - ATR: ${indicators.atr?.value || "N/A"}
 - ADX: ${indicators.adx?.adx || "N/A"}
-- BBANDS: U=${indicators.bbands?.upper_band}, M=${indicators.bbands?.middle_band}, L=${indicators.bbands?.lower_band}
-- EMA(9): ${indicators.ema9?.value}, EMA(12): ${indicators.ema12?.value}, EMA(26): ${indicators.ema26?.value}
+- BBANDS: U=${bb.upper_band || "N/A"}, M=${bb.middle_band || "N/A"}, L=${bb.lower_band || "N/A"}
+- EMA(9): ${indicators.ema9?.value || "N/A"}, EMA(12): ${indicators.ema12?.value || "N/A"}, EMA(26): ${indicators.ema26?.value || "N/A"}
 `.trim();
 }
 
-// Main command handler
 bot.on("message", async (msg) => {
   const text = msg.text.toLowerCase();
   const match = text.match(/(eth|btc|link)(1h|4h)/);
-
   if (!match) return;
 
   const [_, assetKey, interval] = match;
   const symbol = assets[assetKey];
+  const priceData = await getPriceData(assetKey.toUpperCase());
 
-  const priceData = await getPrice(assetKey.toUpperCase());
+  const [atr, adx, bbands, ema9, ema12, ema26] = await Promise.all([
+    getIndicator("atr", symbol, interval, "&time_period=14"),
+    getIndicator("adx", symbol, interval, "&time_period=14"),
+    getIndicator("bbands", symbol, interval, "&time_period=20&stddev=2"),
+    getIndicator("ema", symbol, interval, "&time_period=9"),
+    getIndicator("ema", symbol, interval, "&time_period=12"),
+    getIndicator("ema", symbol, interval, "&time_period=26")
+  ]);
 
-  const indicators = {
-    atr: await getIndicator("atr", symbol, interval, "&time_period=14"),
-    adx: await getIndicator("adx", symbol, interval, "&time_period=14"),
-    bbands: await getIndicator("bbands", symbol, interval, "&time_period=20&stddev=2"),
-    ema9: await getIndicator("ema", symbol, interval, "&time_period=9"),
-    ema12: await getIndicator("ema", symbol, interval, "&time_period=12"),
-    ema26: await getIndicator("ema", symbol, interval, "&time_period=26")
-  };
-
+  const indicators = { atr, adx, bbands, ema9, ema12, ema26 };
   const message = formatMsg(assetKey, interval, priceData, indicators);
+
   bot.sendMessage(CHAT_ID, message, { parse_mode: "Markdown" });
 });
 
-// Start server for Render deployment
 app.get("/", (_, res) => res.send("Bot is live!"));
 app.listen(PORT, () => console.log(`Bot running on port ${PORT}`));
