@@ -1,122 +1,68 @@
-const express = require("express");
-const axios = require("axios");
-const TelegramBot = require("node-telegram-bot-api");
+const TelegramBot = require('node-telegram-bot-api');
+const axios = require('axios');
 
-const TELEGRAM_TOKEN = "7655482876:AAFF_GVN8NqdzBZYctRHHCIQpVvXNZBM1Do";
-const CHAT_ID = "7538764539";
-const TWELVE_API_KEY = "4682ca818a8048e8a8559617a7076638";
+// Replace with your real Telegram bot token
+const token = '7655482876:AAFF_GVN8NqdzBZYctRHHCIQpVvXNZBM1Do';
+const chatId = '7538764539';
 
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
-const app = express();
-const PORT = 3000;
+const bot = new TelegramBot(token, { polling: true });
 
-// Binance symbols
-const binanceSymbols = {
-  eth: "ETHUSDT",
-  btc: "BTCUSDT",
-  link: "LINKUSDT"
+const symbolsMap = {
+  eth1h: 'ETHUSDT',
+  eth4h: 'ETHUSDT',
+  btc1h: 'BTCUSDT',
+  btc4h: 'BTCUSDT',
+  link1h: 'LINKUSDT',
+  link4h: 'LINKUSDT'
 };
 
-// TwelveData symbols
-const twelveSymbols = {
-  eth: "ETH/USD",
-  btc: "BTC/USD",
-  link: "LINK/USD"
-};
-
-// Get Binance price data
-async function getPriceData(binanceSymbol) {
-  try {
-    const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSymbol}`;
-    const res = await axios.get(url);
-    const data = res.data;
-
-    return {
-      price: parseFloat(data.lastPrice).toFixed(2),
-      high: parseFloat(data.highPrice).toFixed(2),
-      low: parseFloat(data.lowPrice).toFixed(2),
-      change: parseFloat(data.priceChange).toFixed(2),
-      changePercent: parseFloat(data.priceChangePercent).toFixed(2),
-      volume: parseFloat(data.volume).toFixed(2),
-      quoteVolume: parseFloat(data.quoteVolume).toFixed(2),
-      open: parseFloat(data.openPrice).toFixed(2),
-      closeTime: new Date(data.closeTime).toLocaleString()
-    };
-  } catch (err) {
-    console.error("Binance API error:", err.message);
-    return {
-      price: "N/A", high: "N/A", low: "N/A",
-      change: "N/A", changePercent: "N/A",
-      volume: "N/A", quoteVolume: "N/A",
-      open: "N/A", closeTime: "N/A"
-    };
-  }
+// Convert command to timeframe label
+function formatTimeframe(cmd) {
+  if (cmd.endsWith('1h')) return '1 Hour';
+  if (cmd.endsWith('4h')) return '4 Hour';
+  return '';
 }
 
-// Get indicator from TwelveData
-async function getIndicator(name, symbol, interval, extra = "") {
+// Format number with commas and 2 decimals
+function formatNum(num) {
+  return parseFloat(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Get data from Binance
+async function getBinanceData(symbol) {
   try {
-    const url = `https://api.twelvedata.com/${name}?symbol=${symbol}&interval=${interval}&apikey=${TWELVE_API_KEY}${extra}`;
-    const res = await axios.get(url);
-    if (res.data && !res.data.status) return res.data;
-    console.error(`${name} failed:`, res.data);
-    return null;
+    const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`;
+    const response = await axios.get(url);
+    return response.data;
   } catch (err) {
-    console.error(`${name} error:`, err.message);
+    console.error('Binance API error:', err.message);
     return null;
   }
 }
 
-// Format output message
-function formatMsg(asset, interval, priceData, indicators) {
-  const bb = indicators.bbands || {};
-  return `
-📊 *${asset.toUpperCase()} ${interval} Analysis*
+bot.onText(/\/(eth1h|eth4h|btc1h|btc4h|link1h|link4h)/, async (msg, match) => {
+  const command = match[1];
+  const symbol = symbolsMap[command];
+  const tf = formatTimeframe(command);
 
-💰 *Price:* $${priceData.price}
-📈 *24h High:* $${priceData.high}
-📉 *24h Low:* $${priceData.low}
-🔁 *Change:* $${priceData.change} (${priceData.changePercent}%)
-🧮 *Volume:* ${priceData.volume}
-💵 *Quote Volume:* ${priceData.quoteVolume}
-🔓 *Open Price:* $${priceData.open}
-⏰ *Close Time:* ${priceData.closeTime}
+  const data = await getBinanceData(symbol);
+  if (!data) {
+    bot.sendMessage(msg.chat.id, '⚠️ Failed to fetch data from Binance.');
+    return;
+  }
 
-📊 *Indicators:*
-- ATR: ${indicators.atr?.value || "N/A"}
-- ADX: ${indicators.adx?.adx || "N/A"}
-- BBANDS: U=${bb.upper_band || "N/A"}, M=${bb.middle_band || "N/A"}, L=${bb.lower_band || "N/A"}
-- EMA(9): ${indicators.ema9?.value || "N/A"}, EMA(12): ${indicators.ema12?.value || "N/A"}, EMA(26): ${indicators.ema26?.value || "N/A"}
-`.trim();
-}
+  const message = `📊 ${symbol} ${tf} Analysis
 
-// Bot listens for commands
-bot.on("message", async (msg) => {
-  const text = msg.text.toLowerCase();
-  const match = text.match(/(eth|btc|link)(1h|4h)/);
-  if (!match) return;
+💰 Price: $${formatNum(data.lastPrice)}
+🔼 High 24h: $${formatNum(data.highPrice)}
+🔽 Low 24h: $${formatNum(data.lowPrice)}
 
-  const [_, assetKey, interval] = match;
-  const binanceSymbol = binanceSymbols[assetKey];
-  const twelveSymbol = twelveSymbols[assetKey];
+📈 24h Change: ${formatNum(data.priceChange)} (${data.priceChangePercent}%)
+📦 Volume: ${formatNum(data.volume)} ${symbol.replace('USDT', '')}
+💵 Quote Volume: $${formatNum(data.quoteVolume)}
 
-  const priceData = await getPriceData(binanceSymbol);
+🕰️ Updated: ${new Date().toLocaleString('en-UK')}
+`;
 
-  const [atr, adx, bbands, ema9, ema12, ema26] = await Promise.all([
-    getIndicator("atr", twelveSymbol, interval, "&time_period=14"),
-    getIndicator("adx", twelveSymbol, interval, "&time_period=14"),
-    getIndicator("bbands", twelveSymbol, interval, "&time_period=20&stddev=2"),
-    getIndicator("ema", twelveSymbol, interval, "&time_period=9"),
-    getIndicator("ema", twelveSymbol, interval, "&time_period=12"),
-    getIndicator("ema", twelveSymbol, interval, "&time_period=26")
-  ]);
-
-  const indicators = { atr, adx, bbands, ema9, ema12, ema26 };
-  const message = formatMsg(assetKey, interval, priceData, indicators);
-
-  bot.sendMessage(CHAT_ID, message, { parse_mode: "Markdown" });
+  bot.sendMessage(msg.chat.id, message);
 });
-
-// Server setup
-app.get("/", (_, res) => res.send("Bot is live!"));
-app.listen(PORT, () => console.log(`Bot running on port ${PORT}`));
