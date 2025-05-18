@@ -5,7 +5,7 @@ const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 3000; // Use Render's assigned port if set
 
-const token = '7655482876:AAFF_GVN8NqdzBZYctRHHCIQpVvXNZBM1Do';
+const token = '7726468556:AAGGs7tVZekeVBcHJQYz4PPh5esQp3qkcjk';
 const bot = new TelegramBot(token, { polling: true });
 
 const twelveDataApiKey = '4682ca818a8048e8a8559617a7076638'; // Your Twelve Data API key
