@@ -1,117 +1,110 @@
+const fetch = require('node-fetch');
 const TelegramBot = require('node-telegram-bot-api');
-const express = require('express');
-const axios = require('axios');
 
-// Replace with your actual API keys and Chat ID
 const TELEGRAM_TOKEN = '7655482876:AAEblBNa0nqu6RTGao17OMbH7VAuwVzkxkk';
-const TWELVE_DATA_API_KEY = '4682ca818a8048e8a8559617a7076638';
 const CHAT_ID = '7538764539';
+const TWELVE_DATA_API_KEY = '4682ca818a8048e8a8559617a7076638';
+const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
-// Express app setup
-const app = express();
-app.use(express.json());
+const formatNum = (num) => parseFloat(num).toFixed(2);
 
-// Create bot with webhook
-const bot = new TelegramBot(TELEGRAM_TOKEN);
-bot.setWebHook(`https://yourdomain.com/bot${TELEGRAM_TOKEN}`);
-
-// Helper function to format numbers
-const formatNum = (num) => {
-  return parseFloat(num).toFixed(2);
+const sendMessage = async (message) => {
+  try {
+    await bot.sendMessage(CHAT_ID, message);
+  } catch (error) {
+    console.error('Error sending message:', error);
+  }
 };
 
-// Mapping for commands to symbols and intervals
-const commandMap = {
-  '/eth1h': { symbol: 'ETH', interval: '1h' },
-  '/eth4h': { symbol: 'ETH', interval: '4h' },
-  '/btc1h': { symbol: 'BTC', interval: '1h' },
-  '/btc4h': { symbol: 'BTC', interval: '4h' },
-  '/link1h': { symbol: 'LINK', interval: '1h' },
-  '/link4h': { symbol: 'LINK', interval: '4h' },
+const getBinanceData = async (symbol) => {
+  try {
+    const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`);
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching Binance data:', error);
+  }
 };
 
-// Function to fetch SMA data
-const fetchSMAData = async (symbol, interval) => {
-  const periods = [5, 13, 21, 50, 100, 200];
-  const smaData = {};
+const getTwelveDataIndicators = async (symbol, interval) => {
+  const indicators = [5, 13, 21, 50, 100, 200];
+  const indicatorData = {};
 
-  for (const period of periods) {
-    const url = `https://api.twelvedata.com/ma?symbol=${symbol}/USD&interval=${interval}&type=sma&time_period=${period}&apikey=${TWELVE_DATA_API_KEY}&timezone=utc`;
+  for (const period of indicators) {
     try {
-      const response = await axios.get(url);
-      if (response.data && response.data.values && response.data.values.length > 0) {
-        smaData[`SMA(${period})`] = response.data.values[0].value;
-      } else {
-        smaData[`SMA(${period})`] = 'N/A';
-      }
+      const response = await fetch(`https://api.twelvedata.com/ma?symbol=${symbol}&interval=${interval}&type=sma&time_period=${period}&apikey=${TWELVE_DATA_API_KEY}&timezone=utc`);
+      const data = await response.json();
+      indicatorData[period] = data.value;
     } catch (error) {
-      console.error(`Error fetching SMA(${period}) for ${symbol}:`, error.message);
-      smaData[`SMA(${period})`] = 'Error';
+      console.error(`Error fetching SMA(${period}) for ${symbol} ${interval}:`, error);
     }
   }
 
-  return smaData;
+  return indicatorData;
 };
 
-// Function to fetch Binance market data
-const fetchBinanceData = async (symbol) => {
-  const binanceSymbol = symbol + 'USDT';
-  const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSymbol}`;
-  try {
-    const response = await axios.get(url);
-    return response.data;
-  } catch (error) {
-    console.error(`Error fetching Binance data for ${symbol}:`, error.message);
-    return null;
-  }
+const generateMessage = (symbol, interval, binanceData, indicatorData) => {
+  const tfLabel = interval === '1h' ? '1-Hour' : '4-Hour';
+  const indicators = Object.entries(indicatorData)
+    .map(([period, value]) => `# SMA(${period}): ${formatNum(value)}`)
+    .join('\n');
+
+  return `
+    📊 ${symbol} ${tfLabel} Analysis
+
+    💰 Price: $${formatNum(binanceData.lastPrice)}
+    📈 24h High: $${formatNum(binanceData.highPrice)}
+    📉 24h Low: $${formatNum(binanceData.lowPrice)}
+    🔁 Change: $${formatNum(binanceData.priceChange)} (${binanceData.priceChangePercent}%)
+    🧮 Volume: ${formatNum(binanceData.volume)}
+    💵 Quote Volume: $${formatNum(binanceData.quoteVolume)}
+    🔓 Open Price: $${formatNum(binanceData.openPrice)}
+    ⏰ Close Time: ${new Date(binanceData.closeTime).toLocaleString('en-UK')}
+
+    Indicators:
+    ${indicators}
+  `;
 };
 
-// Webhook endpoint
-app.post(`/bot${TELEGRAM_TOKEN}`, async (req, res) => {
-  const msg = req.body.message;
+const handleCommand = async (msg) => {
   const chatId = msg.chat.id;
   const command = msg.text.toLowerCase();
 
-  if (commandMap[command]) {
-    const { symbol, interval } = commandMap[command];
-    const tfLabel = interval === '1h' ? '1-Hour' : '4-Hour';
+  let symbol, interval;
 
-    // Fetch data
-    const [smaData, binanceData] = await Promise.all([
-      fetchSMAData(symbol, interval),
-      fetchBinanceData(symbol),
-    ]);
-
-    // Construct message
-    let message = `📊 ${symbol}/USD ${tfLabel} Analysis\n\n`;
-
-    if (binanceData) {
-      message += `💰 Price: $${formatNum(binanceData.lastPrice)}\n`;
-      message += `📈 24h High: $${formatNum(binanceData.highPrice)}\n`;
-      message += `📉 24h Low: $${formatNum(binanceData.lowPrice)}\n`;
-      message += `🔁 Change: $${formatNum(binanceData.priceChange)} (${binanceData.priceChangePercent}%)\n`;
-      message += `🧮 Volume: ${formatNum(binanceData.volume)}\n`;
-      message += `💵 Quote Volume: $${formatNum(binanceData.quoteVolume)}\n`;
-      message += `🔓 Open Price: $${formatNum(binanceData.openPrice)}\n`;
-      message += `⏰ Close Time: ${new Date(binanceData.closeTime).toLocaleString('en-UK')}\n\n`;
-    } else {
-      message += '⚠️ Unable to fetch Binance data.\n\n';
-    }
-
-    message += '📐 SMA Indicators:\n';
-    for (const [key, value] of Object.entries(smaData)) {
-      message += `- ${key}: ${value}\n`;
-    }
-
-    // Send message
-    bot.sendMessage(chatId, message);
+  switch (command) {
+    case '/eth1h':
+      symbol = 'ETH/USD';
+      interval = '1h';
+      break;
+    case '/eth4h':
+      symbol = 'ETH/USD';
+      interval = '4h';
+      break;
+    case '/btc1h':
+      symbol = 'BTC/USD';
+      interval = '1h';
+      break;
+    case '/btc4h':
+      symbol = 'BTC/USD';
+      interval = '4h';
+      break;
+    case '/link1h':
+      symbol = 'LINK/USD';
+      interval = '1h';
+      break;
+    case '/link4h':
+      symbol = 'LINK/USD';
+      interval = '4h';
+      break;
+    default:
+      return;
   }
 
-  res.sendStatus(200);
-});
+  const binanceData = await getBinanceData(symbol.replace('/', ''));
+  const indicatorData = await getTwelveDataIndicators(symbol, interval);
+  const message = generateMessage(symbol, interval, binanceData, indicatorData);
 
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Express server is listening on ${PORT}`);
-});
+  sendMessage(message);
+};
+
+bot.onText(/\/(eth1h|eth4h|btc1h|btc4h|link1h|link4h)/, handleCommand);
