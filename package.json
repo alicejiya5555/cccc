@@ -1,22 +1,12 @@
 {
-  "name": "sma-binance-bot",
+  "name": "telegram-indicator-bot",
   "version": "1.0.0",
-  "description": "Telegram bot for crypto SMA and price data",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
-  "keywords": [
-    "telegram-bot",
-    "crypto",
-    "binance",
-    "sma",
-    "twelvedata"
-  ],
-  "author": "Natalia",
-  "license": "MIT",
   "dependencies": {
-    "axios": "^1.6.8",
+    "axios": "^1.6.7",
     "node-telegram-bot-api": "^0.61.0"
   }
 }
