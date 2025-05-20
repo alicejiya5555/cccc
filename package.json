@@ -1,26 +1,22 @@
 {
-  "name": "telegram-sma-binance-bot",
+  "name": "telegram-crypto-bot",
   "version": "1.0.0",
-  "description": "Telegram bot fetching SMA from Twelve Data and market data from Binance",
+  "description": "Telegram bot that fetches crypto indicators from Twelve Data and price stats from Binance",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
   "keywords": [
     "telegram",
+    "crypto",
     "bot",
-    "sma",
-    "binance",
-    "cryptocurrency",
-    "twelve-data"
+    "twelve-data",
+    "binance"
   ],
   "author": "Natalia",
-  "license": "MIT",
+  "license": "ISC",
   "dependencies": {
-    "axios": "^1.4.0",
+    "axios": "^1.6.7",
     "node-telegram-bot-api": "^0.61.0"
-  },
-  "engines": {
-    "node": ">=16.0.0"
   }
 }
