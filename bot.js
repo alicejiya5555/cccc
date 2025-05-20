@@ -1,117 +1,128 @@
 const TelegramBot = require('node-telegram-bot-api');
-const express = require('express');
 const axios = require('axios');
+const express = require('express');
 
-// Replace with your actual API keys and Chat ID
-const TELEGRAM_TOKEN = '7655482876:AAEblBNa0nqu6RTGao17OMbH7VAuwVzkxkk';
-const TWELVE_DATA_API_KEY = '4682ca818a8048e8a8559617a7076638';
-const CHAT_ID = '7538764539';
-
-// Express app setup
 const app = express();
-app.use(express.json());
+const PORT = process.env.PORT || 3000;
 
-// Create bot with webhook
-const bot = new TelegramBot(TELEGRAM_TOKEN);
-bot.setWebHook(`https://yourdomain.com/bot${TELEGRAM_TOKEN}`);
+const token = '7655482876:AAFF_GVN8NqdzBZYctRHHCIQpVvXNZBM1Do';
+const bot = new TelegramBot(token, { polling: true });
 
-// Helper function to format numbers
-const formatNum = (num) => {
-  return parseFloat(num).toFixed(2);
+const twelveDataApiKey = '4682ca818a8048e8a8559617a7076638';
+
+const symbolsMap = {
+  eth1h: { symbol: 'ETHUSDT', interval: '1h', name: 'ETH' },
+  eth4h: { symbol: 'ETHUSDT', interval: '4h', name: 'ETH' },
+  btc1h: { symbol: 'BTCUSDT', interval: '1h', name: 'BTC' },
+  btc4h: { symbol: 'BTCUSDT', interval: '4h', name: 'BTC' },
+  link1h: { symbol: 'LINKUSDT', interval: '1h', name: 'LINK' },
+  link4h: { symbol: 'LINKUSDT', interval: '4h', name: 'LINK' }
 };
 
-// Mapping for commands to symbols and intervals
-const commandMap = {
-  '/eth1h': { symbol: 'ETH', interval: '1h' },
-  '/eth4h': { symbol: 'ETH', interval: '4h' },
-  '/btc1h': { symbol: 'BTC', interval: '1h' },
-  '/btc4h': { symbol: 'BTC', interval: '4h' },
-  '/link1h': { symbol: 'LINK', interval: '1h' },
-  '/link4h': { symbol: 'LINK', interval: '4h' },
-};
+function formatNum(num) {
+  return parseFloat(num).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
 
-// Function to fetch SMA data
-const fetchSMAData = async (symbol, interval) => {
-  const periods = [5, 13, 21, 50, 100, 200];
-  const smaData = {};
+function formatTimeframeLabel(cmd) {
+  if (cmd.endsWith('1h')) return '1h';
+  if (cmd.endsWith('4h')) return '4h';
+  return '';
+}
 
-  for (const period of periods) {
-    const url = `https://api.twelvedata.com/ma?symbol=${symbol}/USD&interval=${interval}&type=sma&time_period=${period}&apikey=${TWELVE_DATA_API_KEY}&timezone=utc`;
-    try {
-      const response = await axios.get(url);
-      if (response.data && response.data.values && response.data.values.length > 0) {
-        smaData[`SMA(${period})`] = response.data.values[0].value;
-      } else {
-        smaData[`SMA(${period})`] = 'N/A';
-      }
-    } catch (error) {
-      console.error(`Error fetching SMA(${period}) for ${symbol}:`, error.message);
-      smaData[`SMA(${period})`] = 'Error';
-    }
-  }
-
-  return smaData;
-};
-
-// Function to fetch Binance market data
-const fetchBinanceData = async (symbol) => {
-  const binanceSymbol = symbol + 'USDT';
-  const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSymbol}`;
+async function getBinanceData(symbol) {
   try {
-    const response = await axios.get(url);
-    return response.data;
-  } catch (error) {
-    console.error(`Error fetching Binance data for ${symbol}:`, error.message);
+    const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`;
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err) {
+    console.error('Binance API error:', err.message);
     return null;
   }
-};
+}
 
-// Webhook endpoint
-app.post(`/bot${TELEGRAM_TOKEN}`, async (req, res) => {
-  const msg = req.body.message;
-  const chatId = msg.chat.id;
-  const command = msg.text.toLowerCase();
+async function getTwelveDataIndicators(symbol, interval) {
+  try {
+    const base = symbol.replace('USDT', '');
+    const indicators = ['ema', 'adx', 'atr', 'bbands'];
+    const indicatorRequests = indicators.map(ind => {
+      const url = `https://api.twelvedata.com/${ind}?symbol=${base}/USD&interval=${interval}&apikey=${twelveDataApiKey}&format=json&outputsize=1`;
+      return axios.get(url).then(res => ({ [ind]: res.data }));
+    });
 
-  if (commandMap[command]) {
-    const { symbol, interval } = commandMap[command];
-    const tfLabel = interval === '1h' ? '1-Hour' : '4-Hour';
+    const smaPeriods = [5, 13, 21, 50, 100, 200];
+    const smaRequests = smaPeriods.map(period => {
+      const url = `https://api.twelvedata.com/ma?symbol=${base}/USD&interval=${interval}&type=sma&time_period=${period}&apikey=${twelveDataApiKey}&format=json&outputsize=1`;
+      return axios.get(url).then(res => ({ [`sma${period}`]: res.data }));
+    });
 
-    // Fetch data
-    const [smaData, binanceData] = await Promise.all([
-      fetchSMAData(symbol, interval),
-      fetchBinanceData(symbol),
-    ]);
+    const allRequests = await Promise.all([...indicatorRequests, ...smaRequests]);
+    return allRequests.reduce((acc, curr) => ({ ...acc, ...curr }), {});
+  } catch (err) {
+    console.error('Twelve Data API error:', err.message);
+    return null;
+  }
+}
 
-    // Construct message
-    let message = `📊 ${symbol}/USD ${tfLabel} Analysis\n\n`;
+bot.onText(/\/(eth1h|eth4h|btc1h|btc4h|link1h|link4h)/, async (msg, match) => {
+  const command = match[1];
+  const { symbol, interval, name } = symbolsMap[command];
+  const tfLabel = formatTimeframeLabel(command);
 
-    if (binanceData) {
-      message += `💰 Price: $${formatNum(binanceData.lastPrice)}\n`;
-      message += `📈 24h High: $${formatNum(binanceData.highPrice)}\n`;
-      message += `📉 24h Low: $${formatNum(binanceData.lowPrice)}\n`;
-      message += `🔁 Change: $${formatNum(binanceData.priceChange)} (${binanceData.priceChangePercent}%)\n`;
-      message += `🧮 Volume: ${formatNum(binanceData.volume)}\n`;
-      message += `💵 Quote Volume: $${formatNum(binanceData.quoteVolume)}\n`;
-      message += `🔓 Open Price: $${formatNum(binanceData.openPrice)}\n`;
-      message += `⏰ Close Time: ${new Date(binanceData.closeTime).toLocaleString('en-UK')}\n\n`;
-    } else {
-      message += '⚠️ Unable to fetch Binance data.\n\n';
-    }
-
-    message += '📐 SMA Indicators:\n';
-    for (const [key, value] of Object.entries(smaData)) {
-      message += `- ${key}: ${value}\n`;
-    }
-
-    // Send message
-    bot.sendMessage(chatId, message);
+  const binanceData = await getBinanceData(symbol);
+  if (!binanceData) {
+    bot.sendMessage(msg.chat.id, '⚠️ Failed to fetch data from Binance.');
+    return;
   }
 
-  res.sendStatus(200);
+  const indicatorsData = await getTwelveDataIndicators(symbol, interval);
+  if (!indicatorsData) {
+    bot.sendMessage(msg.chat.id, '⚠️ Failed to fetch indicator data.');
+    return;
+  }
+
+  const getValue = (data, key) =>
+    data?.values ? formatNum(data.values[0][key]) : 'N/A';
+
+  const message = `📊 ${name} ${tfLabel} Analysis
+
+💰 Price: $${formatNum(binanceData.lastPrice)}
+📈 24h High: $${formatNum(binanceData.highPrice)}
+📉 24h Low: $${formatNum(binanceData.lowPrice)}
+🔁 Change: $${formatNum(binanceData.priceChange)} (${binanceData.priceChangePercent}%)
+🧮 Volume: ${formatNum(binanceData.volume)}
+💵 Quote Volume: $${formatNum(binanceData.quoteVolume)}
+🔓 Open Price: $${formatNum(binanceData.openPrice)}
+⏰ Close Time: ${new Date(binanceData.closeTime).toLocaleString('en-UK')}
+
+📊 Indicators:
+EMA: ${getValue(indicatorsData.ema, 'ema')}
+ADX: ${getValue(indicatorsData.adx, 'adx')}
+ATR: ${getValue(indicatorsData.atr, 'atr')}
+BBANDS:
+  ┗ Upper: ${getValue(indicatorsData.bbands, 'upperband')}
+  ┗ Middle: ${getValue(indicatorsData.bbands, 'middleband')}
+  ┗ Lower: ${getValue(indicatorsData.bbands, 'lowerband')}
+
+SMA Levels:
+  ┗ SMA(5): ${getValue(indicatorsData.sma5, 'value')}
+  ┗ SMA(13): ${getValue(indicatorsData.sma13, 'value')}
+  ┗ SMA(21): ${getValue(indicatorsData.sma21, 'value')}
+  ┗ SMA(50): ${getValue(indicatorsData.sma50, 'value')}
+  ┗ SMA(100): ${getValue(indicatorsData.sma100, 'value')}
+  ┗ SMA(200): ${getValue(indicatorsData.sma200, 'value')}
+`;
+
+  bot.sendMessage(msg.chat.id, message);
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
+// Minimal web server to satisfy Render hosting
+app.get('/', (req, res) => {
+  res.send('Telegram Bot is running.');
+});
+
 app.listen(PORT, () => {
-  console.log(`Express server is listening on ${PORT}`);
+  console.log(`Server is listening on port ${PORT}`);
 });
