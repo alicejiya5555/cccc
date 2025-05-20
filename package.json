@@ -1,13 +1,15 @@
 {
-  "name": "crypto-indicator-bot",
+  "name": "crypto-telegram-bot",
   "version": "1.0.0",
+  "description": "A Telegram bot that provides cryptocurrency analysis using Binance and Twelve Data APIs.",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
   "dependencies": {
-    "axios": "^1.6.0",
-    "express": "^4.18.2",
-    "node-telegram-bot-api": "^0.61.0"
-  }
+    "node-fetch": "^3.2.0",
+    "node-telegram-bot-api": "^0.56.0"
+  },
+  "author": "Muhammad Shahbaz",
+  "license": "MIT"
 }
