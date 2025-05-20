@@ -1,112 +1,106 @@
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 
-const TELEGRAM_BOT_TOKEN = '7726468556:AAGGs7tVZekeVBcHJQYz4PPh5esQp3qkcjk';
+const TELEGRAM_BOT_TOKEN = '7655482876:AAFF_GVN8nqdzBZYctRHHCIQpVvXNZBM1Do';
 const TWELVE_DATA_API_KEY = '4682ca818a8048e8a8559617a7076638';
-
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
-const SMA_PERIODS = [5, 13, 21, 50, 100, 200];
-
-// Map user commands to symbols and Binance trading pairs
-const SYMBOLS = {
-  btc: { tdSymbol: 'BTC/USD', binanceSymbol: 'BTCUSDT', name: 'Bitcoin' },
-  eth: { tdSymbol: 'ETH/USD', binanceSymbol: 'ETHUSDT', name: 'Ethereum' },
-  link: { tdSymbol: 'LINK/USD', binanceSymbol: 'LINKUSDT', name: 'Chainlink' },
-  bnb: { tdSymbol: 'BNB/USD', binanceSymbol: 'BNBUSDT', name: 'Binance Coin' },
+const COIN_MAP = {
+  btc: { name: 'Bitcoin', twelve: 'BTC/USDT', binance: 'BTCUSDT' },
+  eth: { name: 'Ethereum', twelve: 'ETH/USDT', binance: 'ETHUSDT' },
+  link: { name: 'Chainlink', twelve: 'LINK/USDT', binance: 'LINKUSDT' },
 };
 
-function formatNum(num) {
-  if (!num) return 'N/A';
-  if (parseFloat(num) >= 1000) return parseFloat(num).toLocaleString(undefined, { maximumFractionDigits: 2 });
-  return parseFloat(num).toFixed(4);
-}
+const SMA_PERIODS = [5, 13, 21, 50, 100, 200];
+const EMA_PERIODS = [5, 13, 21, 50, 100, 200];
+const WMA_PERIODS = [5, 13, 21, 50, 100];
+const MACD_SETTINGS = { short: 3, long: 10, signal: 16 };
 
-async function fetchSMA(symbol, interval, period) {
-  const url = `https://api.twelvedata.com/sma?symbol=${symbol}&interval=${interval}&time_period=${period}&apikey=${TWELVE_DATA_API_KEY}`;
-  try {
-    const response = await axios.get(url);
-    if (response.data.values && response.data.values.length > 0) {
-      return response.data.values[0].sma;
-    } else if (response.data.value) {
-      return response.data.value;
-    }
-    return null;
-  } catch (error) {
-    console.error(`Error fetching SMA(${period}) for ${symbol} on ${interval}: ${error.message}`);
-    return null;
-  }
+function formatNum(num) {
+  return parseFloat(num).toFixed(4);
 }
 
 async function fetchBinanceData(symbol) {
   const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`;
   try {
-    const response = await axios.get(url);
-    return response.data;
-  } catch (error) {
-    console.error(`Error fetching Binance data for ${symbol}: ${error.message}`);
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err) {
+    console.error('Binance fetch error:', err.message);
     return null;
   }
 }
 
+async function fetchIndicator(type, symbol, interval, period) {
+  const url = `https://api.twelvedata.com/ma?symbol=${symbol}&interval=${interval}&type=${type}&time_period=${period}&apikey=${TWELVE_DATA_API_KEY}&timezone=utc`;
+  try {
+    const res = await axios.get(url);
+    return res.data.values?.[0]?.value || 'N/A';
+  } catch (err) {
+    return 'N/A';
+  }
+}
+
+async function fetchMACD(symbol, interval) {
+  const url = `https://api.twelvedata.com/macd?symbol=${symbol}&interval=${interval}&short_period=${MACD_SETTINGS.short}&long_period=${MACD_SETTINGS.long}&signal_period=${MACD_SETTINGS.signal}&apikey=${TWELVE_DATA_API_KEY}`;
+  try {
+    const res = await axios.get(url);
+    const v = res.data.values?.[0];
+    return v
+      ? `MACD: ${formatNum(v.macd)} | Signal: ${formatNum(v.signal)} | Histogram: ${formatNum(v.histogram)}`
+      : 'MACD data not available';
+  } catch (err) {
+    return 'MACD fetch failed';
+  }
+}
+
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(
-    msg.chat.id,
-    `👋 Hello! Send commands like:\n\neth1h\neth4h\nbtc1h\nbtc4h\nlink1h\nlink4h\nbnb1h\nbnb4h\n\nI will reply with SMA(5,13,21,50,100,200) from Twelve Data and market data from Binance for that symbol & interval.`
-  );
+  bot.sendMessage(msg.chat.id, `👋 Hello Natalia!\n\nUse commands like:\neth1h, btc4h, link1h\n\nI will show:\n✅ SMA, EMA, WMA, MACD (TwelveData)\n✅ Price & Volume (Binance)\n`);
 });
 
-bot.on('message', async (msg) => {
+bot.onText(/^(eth|btc|link)(1h|4h)$/i, async (msg, match) => {
   const chatId = msg.chat.id;
-  const text = msg.text.toLowerCase().trim();
+  const [_, coinKey, interval] = match;
+  const tfLabel = interval === '1h' ? '1 Hour' : '4 Hour';
 
-  const match = text.match(/^(btc|eth|link|bnb)(1h|4h)$/);
-  if (!match) {
-    if (text !== '/start') {
-      bot.sendMessage(chatId, "❌ Invalid command. Please send commands like 'eth1h', 'btc4h', 'bnb1h'.");
-    }
-    return;
-  }
+  const coin = COIN_MAP[coinKey.toLowerCase()];
+  const symbolTD = coin.twelve;
+  const symbolBN = coin.binance;
 
-  const symbolKey = match[1];
-  const interval = match[2];
-  const symbolInfo = SYMBOLS[symbolKey];
+  let response = `📊 ${coin.name} ${tfLabel} Analysis\n\n`;
 
-  if (!symbolInfo) {
-    bot.sendMessage(chatId, '❌ Unknown symbol.');
-    return;
-  }
-
-  // Fetch SMA values from Twelve Data
-  const smaPromises = SMA_PERIODS.map((period) => fetchSMA(symbolInfo.tdSymbol, interval, period));
-  const smaValues = await Promise.all(smaPromises);
-
-  // Fetch Binance market data
-  const binanceData = await fetchBinanceData(symbolInfo.binanceSymbol);
-
-  let reply = `📊 ${symbolInfo.name} (${symbolKey.toUpperCase()}) — Interval: ${interval}\n\n`;
-
+  // Binance Data
+  const binanceData = await fetchBinanceData(symbolBN);
   if (binanceData) {
-    reply += `💰 Price: $${formatNum(binanceData.lastPrice)}\n`;
-    reply += `📈 24h High: $${formatNum(binanceData.highPrice)}\n`;
-    reply += `📉 24h Low: $${formatNum(binanceData.lowPrice)}\n`;
-    reply += `🔁 Change: $${formatNum(binanceData.priceChange)} (${binanceData.priceChangePercent}%)\n`;
-    reply += `🧮 Volume: ${formatNum(binanceData.volume)}\n`;
-    reply += `💵 Quote Volume: $${formatNum(binanceData.quoteVolume)}\n`;
-    reply += `🔓 Open Price: $${formatNum(binanceData.openPrice)}\n`;
-    reply += `⏰ Close Time: ${new Date(binanceData.closeTime).toLocaleString('en-GB')}\n\n`;
-  } else {
-    reply += "⚠️ Binance market data unavailable.\n\n";
+    response += `💰 Price: $${formatNum(binanceData.lastPrice)}\n📈 High: $${formatNum(binanceData.highPrice)}\n📉 Low: $${formatNum(binanceData.lowPrice)}\n🔁 Change: ${binanceData.priceChangePercent}%\n📊 Volume: ${formatNum(binanceData.volume)}\n💵 Quote Vol: $${formatNum(binanceData.quoteVolume)}\n🧮 Open: $${formatNum(binanceData.openPrice)}\n⏰ Close Time: ${new Date(binanceData.closeTime).toLocaleString('en-UK')}\n\n`;
   }
 
-  reply += `📈 SMA values (from Twelve Data):\n`;
-  SMA_PERIODS.forEach((period, idx) => {
-    if (smaValues[idx]) {
-      reply += `SMA(${period}): ${parseFloat(smaValues[idx]).toFixed(4)}\n`;
-    } else {
-      reply += `SMA(${period}): Data not available\n`;
-    }
-  });
+  // SMA
+  response += `📏 SMA:\n`;
+  const smaVals = await Promise.all(SMA_PERIODS.map(p => fetchIndicator('sma', symbolTD, interval, p)));
+  SMA_PERIODS.forEach((p, i) => response += `SMA(${p}): ${formatNum(smaVals[i])}\n`);
 
-  bot.sendMessage(chatId, reply);
+  // EMA
+  response += `\n📐 EMA:\n`;
+  const emaVals = await Promise.all(EMA_PERIODS.map(p => fetchIndicator('ema', symbolTD, interval, p)));
+  EMA_PERIODS.forEach((p, i) => response += `EMA(${p}): ${formatNum(emaVals[i])}\n`);
+
+  // WMA
+  response += `\n⚖️ WMA:\n`;
+  const wmaVals = await Promise.all(WMA_PERIODS.map(p => fetchIndicator('wma', symbolTD, interval, p)));
+  WMA_PERIODS.forEach((p, i) => response += `WMA(${p}): ${formatNum(wmaVals[i])}\n`);
+
+  // MACD
+  const macdLine = await fetchMACD(symbolTD, interval);
+  response += `\n📊 MACD (3,10,16):\n${macdLine}`;
+
+  bot.sendMessage(chatId, response);
+});
+
+// Invalid message fallback
+bot.on('message', (msg) => {
+  const text = msg.text.toLowerCase();
+  if (!/^(eth|btc|link)(1h|4h)$/.test(text) && !text.startsWith('/start')) {
+    bot.sendMessage(msg.chat.id, `❌ Unknown command. Please use eth1h, btc4h, or /start for help.`);
+  }
 });
