@@ -1,24 +1,13 @@
 {
-  "name": "crypto-indicator-telegram-bot",
+  "name": "binance-ma-bot",
   "version": "1.0.0",
-  "description": "Telegram bot to fetch Binance price data and technical indicators from Twelve Data API",
+  "description": "Telegram bot for Binance EMA/SMA",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
-  "keywords": [
-    "telegram",
-    "bot",
-    "binance",
-    "twelve-data",
-    "indicators",
-    "crypto"
-  ],
-  "author": "NataliaBot",
-  "license": "MIT",
   "dependencies": {
-    "dotenv": "^16.4.5",
-    "node-fetch": "^2.6.9",
-    "telegraf": "^4.12.3"
+    "axios": "^1.6.0",
+    "node-telegram-bot-api": "^0.61.0"
   }
 }
