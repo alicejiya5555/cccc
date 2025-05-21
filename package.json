@@ -1,13 +1,24 @@
 {
-  "name": "telegram-crypto-indicator-bot",
+  "name": "crypto-indicator-telegram-bot",
   "version": "1.0.0",
-  "description": "Telegram bot for crypto indicators using Binance and Twelve Data APIs",
+  "description": "Telegram bot to fetch Binance price data and technical indicators from Twelve Data API",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
+  "keywords": [
+    "telegram",
+    "bot",
+    "binance",
+    "twelve-data",
+    "indicators",
+    "crypto"
+  ],
+  "author": "NataliaBot",
+  "license": "MIT",
   "dependencies": {
-    "axios": "^1.6.8",
-    "node-telegram-bot-api": "^0.61.0"
+    "dotenv": "^16.4.5",
+    "node-fetch": "^2.6.9",
+    "telegraf": "^4.17.1"
   }
 }
