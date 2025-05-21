@@ -3,7 +3,7 @@ import axios from "axios";
 import ti from "technicalindicators";
 
 // ✅ Replace this with your actual Telegram bot token (no .env needed)
-const BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN_HERE";
+const BOT_TOKEN = "7726468556:AAGGs7tVZekeVBcHJQYz4PPh5esQp3qkcjk";
 const bot = new Telegraf(BOT_TOKEN);
 const PORT = 3000;
 
