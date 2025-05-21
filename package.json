@@ -1,13 +1,12 @@
 {
-  "name": "crypto-telegram-bot",
+  "name": "my-telegram-bot",
   "version": "1.0.0",
-  "description": "Telegram bot for crypto info",
+  "description": "Telegram bot using Telegraf",
   "main": "bot.js",
-  "type": "module",
   "scripts": {
     "start": "node bot.js"
   },
   "dependencies": {
-    "telegraf": "^4.12.3"
+    "telegraf": "^4.12.2"
   }
 }
