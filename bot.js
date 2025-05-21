@@ -2,7 +2,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 
 // Replace with your bot token
-const token = 'YOUR_TELEGRAM_BOT_TOKEN';
+const token = '7726468556:AAGGs7tVZekeVBcHJQYz4PPh5esQp3qkcjk';
 const bot = new TelegramBot(token, { polling: true });
 
 // Binance Kline Fetcher
