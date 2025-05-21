@@ -5,7 +5,7 @@ const technicalindicators = require('technicalindicators');
 const app = require('express')();
 const PORT = process.env.PORT || 3000;
 
-const token = '7655482876:AAFF_GVN8NqdzBZYctRHHCIQpVvXNZBM1Do';
+const token = '7726468556:AAGGs7tVZekeVBcHJQYz4PPh5esQp3qkcjk';
 const bot = new TelegramBot(token, { polling: true });
 
 const symbolsMap = {
