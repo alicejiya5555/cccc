@@ -2,7 +2,7 @@ import { Telegraf } from "telegraf";
 import axios from "axios";
 import ti from "technicalindicators";
 
-const BOT_TOKEN = process.env.BOT_TOKEN || "YOUR_TELEGRAM_BOT_TOKEN_HERE";
+const BOT_TOKEN = process.env.BOT_TOKEN || "7726468556:AAGGs7tVZekeVBcHJQYz4PPh5esQp3qkcjk";
 const bot = new Telegraf(BOT_TOKEN);
 
 const PORT = process.env.PORT || 3000;
