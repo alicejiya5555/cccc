@@ -1,97 +1,84 @@
-require('dotenv').config();
-const { Telegraf } = require('telegraf');
-const fetch = require('node-fetch');
+const TelegramBot = require('node-telegram-bot-api');
+const axios = require('axios');
 
-const bot = new Telegraf(process.env.BOT_TOKEN);
-const TWELVE_API_KEY = process.env.TWELVE_API_KEY;
+// Replace with your bot token
+const token = 'YOUR_TELEGRAM_BOT_TOKEN';
+const bot = new TelegramBot(token, { polling: true });
 
-const getPriceData = async (symbol) => {
-  const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  return {
-    price: data.lastPrice,
-    high: data.highPrice,
-    low: data.lowPrice,
-    change: data.priceChangePercent + '%',
-    volume: data.volume,
-    quoteVolume: data.quoteVolume,
-    open: data.openPrice,
-    closeTime: new Date(data.closeTime).toLocaleTimeString(),
-  };
-};
+// Binance Kline Fetcher
+async function fetchKlines(symbol, interval, limit = 300) {
+  const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+  const response = await axios.get(url);
+  return response.data.map(k => ({
+    time: k[0],
+    close: parseFloat(k[4])
+  }));
+}
 
-const getIndicators = async (symbol, interval) => {
-  const indicators = ['sma', 'ema', 'rsi', 'macd', 'bbands'];
-  const queries = indicators.map(indicator =>
-    `https://api.twelvedata.com/${indicator}?symbol=${symbol}&interval=${interval}&apikey=${TWELVE_API_KEY}`
-  );
-  const results = await Promise.all(queries.map(url => fetch(url).then(r => r.json())));
-  return {
-    sma: results[0].values?.[0]?.sma,
-    ema: results[1].values?.[0]?.ema,
-    rsi: results[2].values?.[0]?.rsi,
-    macd: results[3].values?.[0]?.macd,
-    bbands: {
-      upper: results[4].values?.[0]?.upper_band,
-      middle: results[4].values?.[0]?.middle_band,
-      lower: results[4].values?.[0]?.lower_band,
-    }
-  };
-};
+// EMA Calculator
+function calculateEMA(data, period) {
+  const k = 2 / (period + 1);
+  let emaArray = [];
+  let ema = data.slice(0, period).reduce((sum, v) => sum + v, 0) / period;
+  emaArray[period - 1] = ema;
 
-bot.start((ctx) => {
-  ctx.reply('👋 Send /btc1h or /eth15m to get crypto analysis!');
-});
+  for (let i = period; i < data.length; i++) {
+    ema = data[i] * k + ema * (1 - k);
+    emaArray[i] = ema;
+  }
 
-bot.hears(/^\/(btc|eth|link)(15m|1h|4h)$/i, async (ctx) => {
-  const input = ctx.message.text.replace('/', '');
-  const [coin, timeframe] = [input.slice(0, -timeframeLength(input)), input.slice(-timeframeLength(input))];
-  const symbolMap = { btc: 'BTCUSDT', eth: 'ETHUSDT', link: 'LINKUSDT' };
-  const twelveSymbolMap = { btc: 'BTC/USD', eth: 'ETH/USD', link: 'LINK/USD' };
+  return emaArray;
+}
+
+// SMA Calculator
+function calculateSMA(data, period) {
+  let smaArray = [];
+  for (let i = period - 1; i < data.length; i++) {
+    const slice = data.slice(i - period + 1, i + 1);
+    const sma = slice.reduce((sum, v) => sum + v, 0) / period;
+    smaArray[i] = sma;
+  }
+  return smaArray;
+}
+
+// Master Processor
+async function getMAData(symbol, interval) {
+  const data = await fetchKlines(symbol, interval);
+  const closes = data.map(d => d.close);
+
+  const emaPeriods = [5, 13, 21, 50, 100, 200];
+  const smaPeriods = [5, 13, 21, 50, 100, 200];
+
+  let result = `📊 ${symbol} - ${interval} MAs\n`;
+
+  for (let p of emaPeriods) {
+    const ema = calculateEMA(closes, p);
+    const last = ema[ema.length - 1];
+    result += `🔵 EMA${p}: ${last?.toFixed(2)}\n`;
+  }
+
+  for (let p of smaPeriods) {
+    const sma = calculateSMA(closes, p);
+    const last = sma[sma.length - 1];
+    result += `🟢 SMA${p}: ${last?.toFixed(2)}\n`;
+  }
+
+  return result;
+}
+
+// Bot Commands
+bot.onText(/\/ma (.+)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const parts = match[1].split(' ');
+  const symbol = (parts[0] || 'BTCUSDT').toUpperCase();
+  const interval = parts[1] || '1h';
+
+  bot.sendMessage(chatId, `🔍 Fetching MAs for ${symbol} (${interval})...`);
 
   try {
-    ctx.reply(`📊 Fetching data for ${coin.toUpperCase()} - ${timeframe}...`);
-
-    const priceData = await getPriceData(symbolMap[coin]);
-    const indicators = await getIndicators(twelveSymbolMap[coin], timeframe);
-
-    const message = `
-📊 ${coin.toUpperCase()} ${timeframe.toUpperCase()} Analysis
-
-💰 Price: $${priceData.price}
-📈 24h High: $${priceData.high}
-📉 24h Low: $${priceData.low}
-🔁 Change: ${priceData.change}
-🧮 Volume: ${priceData.volume}
-💵 Quote Volume: ${priceData.quoteVolume}
-🔓 Open Price: $${priceData.open}
-⏰ Close Time: ${priceData.closeTime}
-
-📊 Indicators:
-SMA: ${indicators.sma}
-EMA: ${indicators.ema}
-RSI: ${indicators.rsi}
-MACD: ${indicators.macd}
-Bollinger Bands:
-↗️ Upper: ${indicators.bbands.upper}
-➡️ Mid: ${indicators.bbands.middle}
-↘️ Lower: ${indicators.bbands.lower}
-    `;
-
-    ctx.reply(message);
+    const result = await getMAData(symbol, interval);
+    bot.sendMessage(chatId, result);
   } catch (err) {
-    console.error(err);
-    ctx.reply('❌ Error fetching data. Please try again later.');
+    bot.sendMessage(chatId, `❌ Error: ${err.message}`);
   }
 });
-
-const timeframeLength = (tf) => {
-  if (tf === '15m') return 3;
-  if (tf === '1h') return 2;
-  if (tf === '4h') return 2;
-  return 3;
-};
-
-bot.launch();
-console.log('🚀 Bot is running...');
