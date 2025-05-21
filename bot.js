@@ -1,85 +1,97 @@
-const TelegramBot = require("node-telegram-bot-api");
-const axios = require("axios");
+require('dotenv').config();
+const { Telegraf } = require('telegraf');
+const fetch = require('node-fetch');
 
-// === 🔐 Your API KEYS ===
-const TELEGRAM_TOKEN = "7726468556:AAGGs7tVZekeVBcHJQYz4PPh5esQp3qkcjk";
-const TWELVE_API_KEY = "4682ca818a8048e8a8559617a7076638";
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
+const bot = new Telegraf(process.env.BOT_TOKEN);
+const TWELVE_API_KEY = process.env.TWELVE_API_KEY;
 
-// === 🧠 UTILS ===
-const formatNum = (num) =>
-  num ? parseFloat(num).toFixed(2).toLocaleString("en-US") : "N/A";
-
-// === 🔄 INDICATOR FETCH FUNCTION ===
-async function fetchIndicator(url) {
-  try {
-    const res = await axios.get(url);
-    return res.data;
-  } catch (err) {
-    console.log("Indicator error:", err.message);
-    return {};
-  }
-}
-
-// === 📡 MAIN HANDLER ===
-bot.on("message", async (msg) => {
-  const chatId = msg.chat.id;
-  const text = msg.text?.toLowerCase();
-
-  const symbols = ["eth", "btc", "link"];
-  const intervals = {
-    "15m": "15min",
-    "1h": "1h",
-    "4h": "4h",
-    "1d": "1day",
+const getPriceData = async (symbol) => {
+  const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return {
+    price: data.lastPrice,
+    high: data.highPrice,
+    low: data.lowPrice,
+    change: data.priceChangePercent + '%',
+    volume: data.volume,
+    quoteVolume: data.quoteVolume,
+    open: data.openPrice,
+    closeTime: new Date(data.closeTime).toLocaleTimeString(),
   };
+};
 
-  const matched = text?.match(/(eth|btc|link)(15m|1h|4h|1d)/);
-  if (!matched) return;
+const getIndicators = async (symbol, interval) => {
+  const indicators = ['sma', 'ema', 'rsi', 'macd', 'bbands'];
+  const queries = indicators.map(indicator =>
+    `https://api.twelvedata.com/${indicator}?symbol=${symbol}&interval=${interval}&apikey=${TWELVE_API_KEY}`
+  );
+  const results = await Promise.all(queries.map(url => fetch(url).then(r => r.json())));
+  return {
+    sma: results[0].values?.[0]?.sma,
+    ema: results[1].values?.[0]?.ema,
+    rsi: results[2].values?.[0]?.rsi,
+    macd: results[3].values?.[0]?.macd,
+    bbands: {
+      upper: results[4].values?.[0]?.upper_band,
+      middle: results[4].values?.[0]?.middle_band,
+      lower: results[4].values?.[0]?.lower_band,
+    }
+  };
+};
 
-  const [_, coin, tfKey] = matched;
-  const name = coin.toUpperCase();
-  const tfLabel = tfKey.toUpperCase();
-  const interval = intervals[tfKey];
-  const symbolPair = `${name}USDT`;
-
-  // Binance Price Info
-  const binanceUrl = `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbolPair}`;
-  const binanceData = (await fetchIndicator(binanceUrl)) || {};
-
-  // Indicators from Twelve Data
-  const baseUrl = `https://api.twelvedata.com`;
-  const args = `symbol=${name}/USD&interval=${interval}&apikey=${TWELVE_API_KEY}`;
-
-  const [ma5, ema5, macd, rsi5, bb] = await Promise.all([
-    fetchIndicator(`${baseUrl}/ma?${args}&time_period=5&type=sma`),
-    fetchIndicator(`${baseUrl}/ema?${args}&time_period=5`),
-    fetchIndicator(`${baseUrl}/macd?${args}&fast_period=3&slow_period=10&signal_period=16`),
-    fetchIndicator(`${baseUrl}/rsi?${args}&time_period=5`),
-    fetchIndicator(`${baseUrl}/bbands?${args}`),
-  ]);
-
-  // Message Format
-  const message = `📊 ${name} ${tfLabel} Analysis
-
-💰 Price: $${formatNum(binanceData.lastPrice)}
-📈 High: $${formatNum(binanceData.highPrice)}   📉 Low: $${formatNum(binanceData.lowPrice)}
-🔁 Change: $${formatNum(binanceData.priceChange)} (${binanceData.priceChangePercent}%)
-🧮 Volume: ${formatNum(binanceData.volume)}
-💵 Quote Volume: $${formatNum(binanceData.quoteVolume)}
-
-📐 MA(5): ${ma5?.value || "No data"}
-📐 EMA(5): ${ema5?.value || "No data"}
-📈 MACD:
-   ┗ MACD: ${macd?.macd || "No data"}
-   ┗ Signal: ${macd?.signal || "No data"}
-   ┗ Histogram: ${macd?.histogram || "No data"}
-📊 RSI(5): ${rsi5?.value || "No data"}
-🎯 Bollinger Bands:
-   ┗ UP: ${bb?.upper_band || "No data"}
-   ┗ MB: ${bb?.middle_band || "No data"}
-   ┗ DN: ${bb?.lower_band || "No data"}
-`;
-
-  bot.sendMessage(chatId, message);
+bot.start((ctx) => {
+  ctx.reply('👋 Send /btc1h or /eth15m to get crypto analysis!');
 });
+
+bot.hears(/^\/(btc|eth|link)(15m|1h|4h)$/i, async (ctx) => {
+  const input = ctx.message.text.replace('/', '');
+  const [coin, timeframe] = [input.slice(0, -timeframeLength(input)), input.slice(-timeframeLength(input))];
+  const symbolMap = { btc: 'BTCUSDT', eth: 'ETHUSDT', link: 'LINKUSDT' };
+  const twelveSymbolMap = { btc: 'BTC/USD', eth: 'ETH/USD', link: 'LINK/USD' };
+
+  try {
+    ctx.reply(`📊 Fetching data for ${coin.toUpperCase()} - ${timeframe}...`);
+
+    const priceData = await getPriceData(symbolMap[coin]);
+    const indicators = await getIndicators(twelveSymbolMap[coin], timeframe);
+
+    const message = `
+📊 ${coin.toUpperCase()} ${timeframe.toUpperCase()} Analysis
+
+💰 Price: $${priceData.price}
+📈 24h High: $${priceData.high}
+📉 24h Low: $${priceData.low}
+🔁 Change: ${priceData.change}
+🧮 Volume: ${priceData.volume}
+💵 Quote Volume: ${priceData.quoteVolume}
+🔓 Open Price: $${priceData.open}
+⏰ Close Time: ${priceData.closeTime}
+
+📊 Indicators:
+SMA: ${indicators.sma}
+EMA: ${indicators.ema}
+RSI: ${indicators.rsi}
+MACD: ${indicators.macd}
+Bollinger Bands:
+↗️ Upper: ${indicators.bbands.upper}
+➡️ Mid: ${indicators.bbands.middle}
+↘️ Lower: ${indicators.bbands.lower}
+    `;
+
+    ctx.reply(message);
+  } catch (err) {
+    console.error(err);
+    ctx.reply('❌ Error fetching data. Please try again later.');
+  }
+});
+
+const timeframeLength = (tf) => {
+  if (tf === '15m') return 3;
+  if (tf === '1h') return 2;
+  if (tf === '4h') return 2;
+  return 3;
+};
+
+bot.launch();
+console.log('🚀 Bot is running...');
