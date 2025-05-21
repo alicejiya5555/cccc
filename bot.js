@@ -36,7 +36,7 @@ function calculateVWAP(candles, period) {
   return vwapArr;
 }
 
-async function fetchCandles(symbol, interval, limit = 300) {
+async function fetchCandles(symbol, interval, limit = 100) {
   const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
   try {
     const response = await axios.get(url);
