@@ -4,7 +4,7 @@ import ti from "technicalindicators";
 import express from "express";
 
 // --- Bot Init ---
-const BOT_TOKEN = "7726468556:AAFQbeh4hmom8_4gRRxVzTwOxx5beWdQJB0";
+const BOT_TOKEN = "7726468556:AAF_-2MQgDM0hU_7neS4khu5tg1SnFLwwIw";
 const bot = new Telegraf(BOT_TOKEN);
 const PORT = process.env.PORT || 3000;
 
@@ -24,6 +24,7 @@ function parseCommand(command) {
 }
 
 function formatNum(num) {
+  if (num === undefined || num === null || isNaN(num)) return "N/A";
   return parseFloat(num).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
@@ -57,60 +58,73 @@ function calculateIndicators(candles) {
   const low = candles.map(c => c.low);
   const volume = candles.map(c => c.volume);
 
+  // Helper to safely get last value or NaN if empty
+  const lastValue = (arr) => arr.length ? arr.slice(-1)[0] : NaN;
+
+  const macdRaw = ti.MACD.calculate({
+    values: close,
+    fastPeriod: 3,
+    slowPeriod: 10,
+    signalPeriod: 16,
+    SimpleMAOscillator: false,
+    SimpleMASignal: false
+  });
+  const macd = lastValue(macdRaw) || { MACD: 0, signal: 0, histogram: 0 };
+
+  const bbRaw = ti.BollingerBands.calculate({
+    period: 20,
+    values: close,
+    stdDev: 2
+  });
+  const bb = lastValue(bbRaw) || { upper: 0, middle: 0, lower: 0 };
+
   return {
-    sma5: formatNum(ti.SMA.calculate({ period: 5, values: close }).slice(-1)[0]),
-    sma13: formatNum(ti.SMA.calculate({ period: 13, values: close }).slice(-1)[0]),
-    sma21: formatNum(ti.SMA.calculate({ period: 21, values: close }).slice(-1)[0]),
-    sma50: formatNum(ti.SMA.calculate({ period: 50, values: close }).slice(-1)[0]),
-    sma100: formatNum(ti.SMA.calculate({ period: 100, values: close }).slice(-1)[0]),
-    sma200: formatNum(ti.SMA.calculate({ period: 200, values: close }).slice(-1)[0]),
+    sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
+    sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
+    sma21: formatNum(lastValue(ti.SMA.calculate({ period: 21, values: close }))),
+    sma50: formatNum(lastValue(ti.SMA.calculate({ period: 50, values: close }))),
+    sma100: formatNum(lastValue(ti.SMA.calculate({ period: 100, values: close }))),
+    sma200: formatNum(lastValue(ti.SMA.calculate({ period: 200, values: close }))),
 
-    ema5: formatNum(ti.EMA.calculate({ period: 5, values: close }).slice(-1)[0]),
-    ema13: formatNum(ti.EMA.calculate({ period: 13, values: close }).slice(-1)[0]),
-    ema21: formatNum(ti.EMA.calculate({ period: 21, values: close }).slice(-1)[0]),
-    ema50: formatNum(ti.EMA.calculate({ period: 50, values: close }).slice(-1)[0]),
-    ema100: formatNum(ti.EMA.calculate({ period: 100, values: close }).slice(-1)[0]),
-    ema200: formatNum(ti.EMA.calculate({ period: 200, values: close }).slice(-1)[0]),
+    ema5: formatNum(lastValue(ti.EMA.calculate({ period: 5, values: close }))),
+    ema13: formatNum(lastValue(ti.EMA.calculate({ period: 13, values: close }))),
+    ema21: formatNum(lastValue(ti.EMA.calculate({ period: 21, values: close }))),
+    ema50: formatNum(lastValue(ti.EMA.calculate({ period: 50, values: close }))),
+    ema100: formatNum(lastValue(ti.EMA.calculate({ period: 100, values: close }))),
+    ema200: formatNum(lastValue(ti.EMA.calculate({ period: 200, values: close }))),
 
-    wma5: formatNum(ti.WMA.calculate({ period: 5, values: close }).slice(-1)[0]),
-    wma13: formatNum(ti.WMA.calculate({ period: 13, values: close }).slice(-1)[0]),
-    wma21: formatNum(ti.WMA.calculate({ period: 21, values: close }).slice(-1)[0]),
-    wma50: formatNum(ti.WMA.calculate({ period: 50, values: close }).slice(-1)[0]),
-    wma100: formatNum(ti.WMA.calculate({ period: 100, values: close }).slice(-1)[0]),
+    wma5: formatNum(lastValue(ti.WMA.calculate({ period: 5, values: close }))),
+    wma13: formatNum(lastValue(ti.WMA.calculate({ period: 13, values: close }))),
+    wma21: formatNum(lastValue(ti.WMA.calculate({ period: 21, values: close }))),
+    wma50: formatNum(lastValue(ti.WMA.calculate({ period: 50, values: close }))),
+    wma100: formatNum(lastValue(ti.WMA.calculate({ period: 100, values: close }))),
 
- macd: ti.MACD.calculate({
-  values: close,
-  fastPeriod: 3,
-  slowPeriod: 10,
-  signalPeriod: 16,
-  SimpleMAOscillator: false,
-  SimpleMASignal: false
-}).slice(-1)[0] || { MACD: 0, signal: 0, histogram: 0 },
+    macdValue: formatNum(macd.MACD),
+    macdSignal: formatNum(macd.signal),
+    macdHistogram: formatNum(macd.histogram),
 
-    bb: ti.BollingerBands.calculate({
-      period: 20,
-      values: close,
-      stdDev: 2
-    }).slice(-1)[0] || { upper: 0, middle: 0, lower: 0 },
+    bbUpper: formatNum(bb.upper),
+    bbMiddle: formatNum(bb.middle),
+    bbLower: formatNum(bb.lower),
 
-    rsi5: formatNum(ti.RSI.calculate({ period: 5, values: close }).slice(-1)[0]),
-    rsi14: formatNum(ti.RSI.calculate({ period: 14, values: close }).slice(-1)[0]),
+    rsi5: formatNum(lastValue(ti.RSI.calculate({ period: 5, values: close }))),
+    rsi14: formatNum(lastValue(ti.RSI.calculate({ period: 14, values: close }))),
   };
 }
 
 // --- Output Message Generator ---
-function generateOutput(binanceData, indicators, name = "Symbol", tfLabel = "Timeframe") {
+function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timeframe") {
   const header = 
 `📊 ${name} ${tfLabel} Analysis
 
-💰 Price: $${formatNum(binanceData.lastPrice)}
-📈 24h High: $${formatNum(binanceData.highPrice)}
-📉 24h Low: $${formatNum(binanceData.lowPrice)}
-🔁 Change: $${formatNum(binanceData.priceChange)} (${binanceData.priceChangePercent}%)
-🧮 Volume: ${formatNum(binanceData.volume)}
-💵 Quote Volume: $${formatNum(binanceData.quoteVolume)}
-🔓 Open Price: $${formatNum(binanceData.openPrice)}
-⏰ Close Time: ${new Date(binanceData.closeTime).toLocaleString('en-UK')}
+💰 Price: $${formatNum(priceData.lastPrice)}
+📈 24h High: $${formatNum(priceData.highPrice)}
+📉 24h Low: $${formatNum(priceData.lowPrice)}
+🔁 Change: $${formatNum(priceData.priceChange)} (${priceData.priceChangePercent}%)
+🧮 Volume: ${formatNum(priceData.volume)}
+💵 Quote Volume: $${formatNum(priceData.quoteVolume)}
+🔓 Open Price: $${formatNum(priceData.openPrice)}
+⏰ Close Time: ${new Date(priceData.closeTime).toLocaleString('en-UK')}
 
 `;
 
@@ -145,36 +159,20 @@ function generateOutput(binanceData, indicators, name = "Symbol", tfLabel = "Tim
  - WMA 100: $${indicators.wma100}
 
 `;
-const fastEMA = ti.EMA.calculate({ period: 3, values: close });
-const slowEMA = ti.EMA.calculate({ period: 10, values: close });
 
-const macdArray = ti.MACD.calculate({
-  values: close,
-  fastPeriod: 3,
-  slowPeriod: 10,
-  signalPeriod: 16,
-  SimpleMAOscillator: false,
-  SimpleMASignal: false
-});
-
-const lastFastEMA = fastEMA.length ? fastEMA[fastEMA.length - 1] : 0;
-const lastSlowEMA = slowEMA.length ? slowEMA[slowEMA.length - 1] : 0;
-const lastMACD = macdArray.length ? macdArray[macdArray.length - 1] : null;
-
-const macdResult = lastMACD ? {
-  fast: lastFastEMA,
-  slow: lastSlowEMA,
-  signal: lastMACD.signal
-} : { fast: 0, slow: 0, signal: 0 };
+  const macdSection =
+`📉 MACD:
+ - MACD: ${indicators.macdValue}
+ - Signal: ${indicators.macdSignal}
+ - Histogram: ${indicators.macdHistogram}
 
 `;
 
-  const bb = indicators.bb;
   const bbSection =
 `🎯 Bollinger Bands (20, 2 StdDev):
- - Upper Band: $${formatNum(bb.upper)}
- - Middle Band: $${formatNum(bb.middle)}
- - Lower Band: $${formatNum(bb.lower)}
+ - Upper Band: $${indicators.bbUpper}
+ - Middle Band: $${indicators.bbMiddle}
+ - Lower Band: $${indicators.bbLower}
 
 `;
 
