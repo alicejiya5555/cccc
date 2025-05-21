@@ -6,7 +6,7 @@ const technicalIndicators = require("technicalindicators");
 
 const app = express();
 const PORT = 3000;
-const TELEGRAM_BOT_TOKEN = "8103578620:AAGbiFpsDYKQAOcs3x1uPbORL96dO-xgTTg";
+const TELEGRAM_BOT_TOKEN = "7726468556:AAGGs7tVZekeVBcHJQYz4PPh5esQp3qkcjk";
 const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
 const BINANCE_BASE_URL = "https://api.binance.com/api/v3";
