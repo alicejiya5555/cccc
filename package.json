@@ -1,12 +1,29 @@
 {
-  "name": "my-telegram-bot",
+  "name": "telegram-bot-technical-indicators",
   "version": "1.0.0",
-  "description": "Telegram bot using Telegraf",
+  "description": "Telegram bot with custom technical indicators using Binance API",
+  "type": "module",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
+  "keywords": [
+    "telegram",
+    "bot",
+    "technicalindicators",
+    "binance",
+    "express"
+  ],
+  "author": "Natalia",
+  "license": "MIT",
   "dependencies": {
-    "telegraf": "^4.12.2"
+    "axios": "^1.4.0",
+    "dayjs": "^1.11.9",
+    "express": "^4.18.2",
+    "telegraf": "^4.12.2",
+    "technicalindicators": "^3.0.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
