@@ -161,7 +161,7 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 `;
 
   const macdSection =
-`📉 MACD:
+`📉 MACD: (3,10,16)
  - MACD: ${indicators.macdValue}
  - Signal: ${indicators.macdSignal}
  - Histogram: ${indicators.macdHistogram}
