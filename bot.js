@@ -1,53 +1,66 @@
-const TelegramBot = require('node-telegram-bot-api');
-const axios = require('axios');
-const express = require('express');
+const TelegramBot = require("node-telegram-bot-api");
+const axios = require("axios");
 
-const token = '7726468556:AAGGs7tVZekeVBcHJQYz4PPh5esQp3qkcjk';
-const chatId = '7538764539';
-const twelveApiKey = '4682ca818a8048e8a8559617a7076638';
-const bot = new TelegramBot(token, { polling: true });
+// === 🔐 Your API KEYS ===
+const TELEGRAM_TOKEN = "7726468556:AAGGs7tVZekeVBcHJQYz4PPh5esQp3qkcjk";
+const TWELVE_API_KEY = "4682ca818a8048e8a8559617a7076638";
+const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
 
-// ──────────────────────────────────────
-// HELPERS
-const formatNum = num => Number(num).toLocaleString('en-UK', { maximumFractionDigits: 4 });
-const pairs = {
-  btc: 'BTC/USDT',
-  eth: 'ETH/USDT',
-  link: 'LINK/USDT'
-};
-const timeFrames = {
-  '15m': '15min',
-  '1h': '1h',
-  '4h': '4h',
-  '1d': '1day'
-};
+// === 🧠 UTILS ===
+const formatNum = (num) =>
+  num ? parseFloat(num).toFixed(2).toLocaleString("en-US") : "N/A";
 
-// ──────────────────────────────────────
-// MAIN MESSAGE HANDLER
-bot.on('message', async msg => {
-  const text = msg.text.toLowerCase();
-  const match = text.match(/(btc|eth|link)(15m|1h|4h|1d)/);
-
-  if (!match) return;
-
-  const symbol = match[1];
-  const tf = match[2];
-  const tfLabel = timeFrames[tf];
-  const name = symbol.toUpperCase();
-
-  const binanceSymbol = symbol.toUpperCase() + 'USDT';
-
+// === 🔄 INDICATOR FETCH FUNCTION ===
+async function fetchIndicator(url) {
   try {
-    const binanceRes = await axios.get(`https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSymbol}`);
-    const binanceData = binanceRes.data;
+    const res = await axios.get(url);
+    return res.data;
+  } catch (err) {
+    console.log("Indicator error:", err.message);
+    return {};
+  }
+}
 
-    const ma5 = await axios.get(`https://api.twelvedata.com/ma?symbol=${pairs[symbol]}&interval=${tfLabel}&time_period=5&type=sma&apikey=${twelveApiKey}`);
-    const ema5 = await axios.get(`https://api.twelvedata.com/ema?symbol=${pairs[symbol]}&interval=${tfLabel}&time_period=5&apikey=${twelveApiKey}`);
-    const macd = await axios.get(`https://api.twelvedata.com/macd?symbol=${pairs[symbol]}&interval=${tfLabel}&fast_period=3&slow_period=10&signal_period=16&apikey=${twelveApiKey}`);
-    const rsi5 = await axios.get(`https://api.twelvedata.com/rsi?symbol=${pairs[symbol]}&interval=${tfLabel}&time_period=5&apikey=${twelveApiKey}`);
-    const boll = await axios.get(`https://api.twelvedata.com/bbands?symbol=${pairs[symbol]}&interval=${tfLabel}&apikey=${twelveApiKey}`);
+// === 📡 MAIN HANDLER ===
+bot.on("message", async (msg) => {
+  const chatId = msg.chat.id;
+  const text = msg.text?.toLowerCase();
 
-    const message = `📊 ${name} ${tfLabel} Analysis
+  const symbols = ["eth", "btc", "link"];
+  const intervals = {
+    "15m": "15min",
+    "1h": "1h",
+    "4h": "4h",
+    "1d": "1day",
+  };
+
+  const matched = text?.match(/(eth|btc|link)(15m|1h|4h|1d)/);
+  if (!matched) return;
+
+  const [_, coin, tfKey] = matched;
+  const name = coin.toUpperCase();
+  const tfLabel = tfKey.toUpperCase();
+  const interval = intervals[tfKey];
+  const symbolPair = `${name}USDT`;
+
+  // Binance Price Info
+  const binanceUrl = `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbolPair}`;
+  const binanceData = (await fetchIndicator(binanceUrl)) || {};
+
+  // Indicators from Twelve Data
+  const baseUrl = `https://api.twelvedata.com`;
+  const args = `symbol=${name}/USD&interval=${interval}&apikey=${TWELVE_API_KEY}`;
+
+  const [ma5, ema5, macd, rsi5, bb] = await Promise.all([
+    fetchIndicator(`${baseUrl}/ma?${args}&time_period=5&type=sma`),
+    fetchIndicator(`${baseUrl}/ema?${args}&time_period=5`),
+    fetchIndicator(`${baseUrl}/macd?${args}&fast_period=3&slow_period=10&signal_period=16`),
+    fetchIndicator(`${baseUrl}/rsi?${args}&time_period=5`),
+    fetchIndicator(`${baseUrl}/bbands?${args}`),
+  ]);
+
+  // Message Format
+  const message = `📊 ${name} ${tfLabel} Analysis
 
 💰 Price: $${formatNum(binanceData.lastPrice)}
 📈 High: $${formatNum(binanceData.highPrice)}   📉 Low: $${formatNum(binanceData.lowPrice)}
@@ -55,32 +68,18 @@ bot.on('message', async msg => {
 🧮 Volume: ${formatNum(binanceData.volume)}
 💵 Quote Volume: $${formatNum(binanceData.quoteVolume)}
 
-📐 MA(5): ${ma5.data.value}
-📐 EMA(5): ${ema5.data.value}
-📈 MACD: ${macd.data.macd} | Signal: ${macd.data.signal} | Histogram: ${macd.data.histogram}
-📊 RSI(5): ${rsi5.data.value}
+📐 MA(5): ${ma5?.value || "No data"}
+📐 EMA(5): ${ema5?.value || "No data"}
+📈 MACD:
+   ┗ MACD: ${macd?.macd || "No data"}
+   ┗ Signal: ${macd?.signal || "No data"}
+   ┗ Histogram: ${macd?.histogram || "No data"}
+📊 RSI(5): ${rsi5?.value || "No data"}
 🎯 Bollinger Bands:
-   ┗ UP: ${boll.data.upper_band}
-   ┗ MB: ${boll.data.middle_band}
-   ┗ DN: ${boll.data.lower_band}
+   ┗ UP: ${bb?.upper_band || "No data"}
+   ┗ MB: ${bb?.middle_band || "No data"}
+   ┗ DN: ${bb?.lower_band || "No data"}
 `;
 
-    bot.sendMessage(chatId, message);
-  } catch (error) {
-    console.error('Error:', error.message);
-    bot.sendMessage(chatId, `❌ Error fetching data. Try again later.`);
-  }
-});
-
-// ──────────────────────────────────────
-// DUMMY EXPRESS SERVER FOR RENDER
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.get('/', (req, res) => {
-  res.send('Telegram bot is running...');
-});
-
-app.listen(PORT, () => {
-  console.log(`Listening on port ${PORT}`);
+  bot.sendMessage(chatId, message);
 });
