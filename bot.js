@@ -78,14 +78,14 @@ function calculateIndicators(candles) {
     wma50: formatNum(ti.WMA.calculate({ period: 50, values: close }).slice(-1)[0]),
     wma100: formatNum(ti.WMA.calculate({ period: 100, values: close }).slice(-1)[0]),
 
-    macd: ti.MACD.calculate({
-      values: close,
-      fastPeriod: 3,
-      slowPeriod: 10,
-      signalPeriod: 16,
-      SimpleMAOscillator: false,
-      SimpleMASignal: false
-    }).slice(-1)[0] || { fast: 0, slow: 0, signal: 0 },
+ macd: ti.MACD.calculate({
+  values: close,
+  fastPeriod: 3,
+  slowPeriod: 10,
+  signalPeriod: 16,
+  SimpleMAOscillator: false,
+  SimpleMASignal: false
+}).slice(-1)[0] || { MACD: 0, signal: 0, histogram: 0 },
 
     bb: ti.BollingerBands.calculate({
       period: 20,
