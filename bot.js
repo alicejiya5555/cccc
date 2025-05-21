@@ -146,12 +146,29 @@ function generateOutput(binanceData, indicators, name = "Symbol", tfLabel = "Tim
 
 `;
 
-  const macd = indicators.macd;
-  const macdSection =
-`📉 MACD:
- - Fast: ${formatNum(macd.fast)}
- - Slow: ${formatNum(macd.slow)}
- - Signal: ${formatNum(macd.signal)}
+// Assuming `close` is your array of close prices
+
+const fastEMA = ti.EMA.calculate({ period: 3, values: close });
+const slowEMA = ti.EMA.calculate({ period: 10, values: close });
+
+const macdArray = ti.MACD.calculate({
+  values: close,
+  fastPeriod: 3,
+  slowPeriod: 10,
+  signalPeriod: 16,
+  SimpleMAOscillator: false,
+  SimpleMASignal: false
+});
+
+const lastFastEMA = fastEMA.length ? fastEMA[fastEMA.length - 1] : 0;
+const lastSlowEMA = slowEMA.length ? slowEMA[slowEMA.length - 1] : 0;
+const lastMACD = macdArray.length ? macdArray[macdArray.length - 1] : null;
+
+const macdResult = lastMACD ? {
+  fast: lastFastEMA,
+  slow: lastSlowEMA,
+  signal: lastMACD.signal
+} : { fast: 0, slow: 0, signal: 0 };
 
 `;
 
