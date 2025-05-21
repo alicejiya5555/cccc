@@ -1,13 +1,13 @@
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
-const express = require('express');
+const technicalindicators = require('technicalindicators');
 
-const token = '7726468556:AAGGs7tVZekeVBcHJQYz4PPh5esQp3qkcjk';
-const bot = new TelegramBot(token, { polling: true });
-const app = express();
+const app = require('express')();
 const PORT = process.env.PORT || 3000;
 
-// Map commands to Binance symbols and intervals
+const token = '7655482876:AAFF_GVN8NqdzBZYctRHHCIQpVvXNZBM1Do';
+const bot = new TelegramBot(token, { polling: true });
+
 const symbolsMap = {
   eth1h: { symbol: 'ETHUSDT', interval: '1h', name: 'ETH' },
   eth4h: { symbol: 'ETHUSDT', interval: '4h', name: 'ETH' },
@@ -20,437 +20,237 @@ const symbolsMap = {
   link12h: { symbol: 'LINKUSDT', interval: '12h', name: 'LINK' }
 };
 
-// Indicator periods & params
-const smaPeriods = [5, 13, 21, 50, 100, 200];
-const emaPeriods = smaPeriods;
-const wmaPeriods = smaPeriods;
-const rsiPeriods = [5, 14];
-const stochRsiParams = { rsiPeriod: 14, stochPeriod: 14, kPeriod: 3, dPeriod: 3 };
-const macdParams = { fast: 3, slow: 10, signal: 16 };
-const dmiPeriod = 14;
-const trixPeriod = 9;
-const cciPeriods = [7, 10, 20];
-const mtmPeriods = [7, 14, 21];
-const mfiPeriods = [14, 21];
-const sarParams = { step: 0.02, maxStep: 0.2 };
-const williamsRPeriod = 14;
-const atrPeriod = 14;
-const rocPeriod = 14;
-
-// Utility to format numbers
-function formatNum(num, decimals = 4) {
-  if (num === null || num === undefined || isNaN(num)) return 'n/a';
-  return parseFloat(num).toFixed(decimals);
+// Helper to calculate VWAP for 1 and 5 period - custom implementation
+function calculateVWAP(candles, period) {
+  let vwapArr = [];
+  for (let i = period - 1; i < candles.length; i++) {
+    const slice = candles.slice(i - period + 1, i + 1);
+    let tpSum = 0, volSum = 0;
+    slice.forEach(c => {
+      const tp = (c.high + c.low + c.close) / 3;
+      tpSum += tp * c.volume;
+      volSum += c.volume;
+    });
+    vwapArr.push(tpSum / volSum);
+  }
+  return vwapArr;
 }
 
-// Fetch Klines (candlesticks) - returns array of klines
-async function getKlines(symbol, interval, limit = 250) {
+async function fetchCandles(symbol, interval, limit = 300) {
   const url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
-  const response = await axios.get(url);
-  return response.data;
-}
-
-// Extract close prices from klines
-function extractCloses(klines) {
-  return klines.map(k => parseFloat(k[4]));
-}
-function extractHighs(klines) {
-  return klines.map(k => parseFloat(k[2]));
-}
-function extractLows(klines) {
-  return klines.map(k => parseFloat(k[3]));
-}
-function extractVolumes(klines) {
-  return klines.map(k => parseFloat(k[5]));
-}
-function typicalPrices(klines) {
-  return klines.map(k => (parseFloat(k[2]) + parseFloat(k[3]) + parseFloat(k[4])) / 3);
-}
-
-// --- SMA ---
-function calculateSMA(closes, period) {
-  if (closes.length < period) return null;
-  const slice = closes.slice(-period);
-  const sum = slice.reduce((a, b) => a + b, 0);
-  return sum / period;
-}
-
-// --- EMA ---
-function calculateEMA(closes, period) {
-  if (closes.length < period) return null;
-  const k = 2 / (period + 1);
-  let ema = calculateSMA(closes.slice(0, period), period);
-  for (let i = period; i < closes.length; i++) {
-    ema = closes[i] * k + ema * (1 - k);
+  try {
+    const response = await axios.get(url);
+    return response.data.map(c => ({
+      open: parseFloat(c[1]),
+      high: parseFloat(c[2]),
+      low: parseFloat(c[3]),
+      close: parseFloat(c[4]),
+      volume: parseFloat(c[5]),
+      time: c[0]
+    }));
+  } catch (error) {
+    console.error('Binance API error:', error.message);
+    throw error;
   }
-  return ema;
 }
 
-// --- WMA ---
-function calculateWMA(closes, period) {
-  if (closes.length < period) return null;
-  const slice = closes.slice(-period);
-  let denominator = (period * (period + 1)) / 2;
-  let numerator = 0;
-  for (let i = 0; i < period; i++) {
-    numerator += slice[i] * (i + 1);
-  }
-  return numerator / denominator;
-}
+function calculateIndicators(candles) {
+  const close = candles.map(c => c.close);
+  const high = candles.map(c => c.high);
+  const low = candles.map(c => c.low);
+  const volume = candles.map(c => c.volume);
 
-// --- RSI ---
-function calculateRSI(closes, period) {
-  if (closes.length <= period) return null;
-  let gains = 0;
-  let losses = 0;
-  for (let i = 1; i <= period; i++) {
-    const diff = closes[i] - closes[i - 1];
-    if (diff > 0) gains += diff;
-    else losses -= diff;
-  }
-  if (losses === 0) return 100;
-  const rs = gains / losses;
-  let rsi = 100 - 100 / (1 + rs);
-  // Smooth RSI for rest of data
-  for (let i = period + 1; i < closes.length; i++) {
-    const diff = closes[i] - closes[i - 1];
-    const gain = diff > 0 ? diff : 0;
-    const loss = diff < 0 ? -diff : 0;
-    gains = (gains * (period - 1) + gain) / period;
-    losses = (losses * (period - 1) + loss) / period;
-    if (losses === 0) rsi = 100;
-    else {
-      const rs = gains / losses;
-      rsi = 100 - 100 / (1 + rs);
-    }
-  }
-  return rsi;
-}
-
-// --- Stoch RSI ---
-function calculateStochRSI(closes, rsiPeriod, stochPeriod, kPeriod, dPeriod) {
-  const rsiValues = [];
-  for (let i = rsiPeriod; i <= closes.length; i++) {
-    const slice = closes.slice(i - rsiPeriod, i);
-    rsiValues.push(calculateRSI(slice, rsiPeriod));
-  }
-  if (rsiValues.length < stochPeriod) return null;
-  const stochRsiKValues = [];
-  for (let i = stochPeriod; i <= rsiValues.length; i++) {
-    const window = rsiValues.slice(i - stochPeriod, i);
-    const minRsi = Math.min(...window);
-    const maxRsi = Math.max(...window);
-    const currentRsi = rsiValues[i - 1];
-    const stochRsi = (currentRsi - minRsi) / (maxRsi - minRsi);
-    stochRsiKValues.push(stochRsi);
-  }
-  // Smooth %K
-  const smoothK = SMAorEMA(stochRsiKValues, kPeriod, 'SMA');
-  if (smoothK.length < dPeriod) return null;
-  // Smooth %D
-  const smoothD = SMAorEMA(smoothK, dPeriod, 'SMA');
-  if (smoothD.length === 0) return null;
-  return {
-    K: smoothK[smoothK.length - 1] * 100,
-    D: smoothD[smoothD.length - 1] * 100,
-  };
-}
-
-// Helper SMA/EMA for arrays
-function SMAorEMA(values, period, type = 'SMA') {
-  if (values.length < period) return [];
-  const results = [];
-  if (type === 'SMA') {
-    for (let i = period; i <= values.length; i++) {
-      const slice = values.slice(i - period, i);
-      const avg = slice.reduce((a, b) => a + b, 0) / period;
-      results.push(avg);
-    }
-  } else if (type === 'EMA') {
-    let ema = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
-    results.push(ema);
-    const k = 2 / (period + 1);
-    for (let i = period; i < values.length; i++) {
-      ema = values[i] * k + ema * (1 - k);
-      results.push(ema);
-    }
-  }
-  return results;
-}
-
-// --- MACD ---
-function calculateMACD(closes, fastPeriod, slowPeriod, signalPeriod) {
-  if (closes.length < slowPeriod + signalPeriod) return null;
-  const emaFast = [];
-  const emaSlow = [];
-  let kFast = 2 / (fastPeriod + 1);
-  let kSlow = 2 / (slowPeriod + 1);
-
-  // Calculate EMA fast
-  let emaF = calculateSMA(closes.slice(0, fastPeriod), fastPeriod);
-  emaFast.push(emaF);
-  for (let i = fastPeriod; i < closes.length; i++) {
-    emaF = closes[i] * kFast + emaF * (1 - kFast);
-    emaFast.push(emaF);
-  }
-  // Calculate EMA slow
-  let emaS = calculateSMA(closes.slice(0, slowPeriod), slowPeriod);
-  emaSlow.push(emaS);
-  for (let i = slowPeriod; i < closes.length; i++) {
-    emaS = closes[i] * kSlow + emaS * (1 - kSlow);
-    emaSlow.push(emaS);
-  }
-  // MACD line = EMA_fast - EMA_slow, align lengths
-  let macdLine = [];
-  let startIndex = slowPeriod - fastPeriod;
-  for (let i = 0; i < emaSlow.length; i++) {
-    const idx = i + startIndex;
-    if (idx >= 0 && idx < emaFast.length) {
-      macdLine.push(emaFast[idx] - emaSlow[i]);
-    }
-  }
-  // Signal line = EMA of MACD line
-  let signalLine = [];
-  let kSignal = 2 / (signalPeriod + 1);
-  let signal = macdLine.slice(0, signalPeriod).reduce((a, b) => a + b, 0) / signalPeriod;
-  signalLine.push(signal);
-  for (let i = signalPeriod; i < macdLine.length; i++) {
-    signal = macdLine[i] * kSignal + signal * (1 - kSignal);
-    signalLine.push(signal);
-  }
-  // Histogram = MACD line - Signal line
-  const histogram = [];
-  for (let i = 0; i < signalLine.length; i++) {
-    histogram.push(macdLine[i + signalPeriod - 1] - signalLine[i]);
-  }
-
-  return {
-    macd: macdLine[macdLine.length - 1],
-    signal: signalLine[signalLine.length - 1],
-    histogram: histogram[histogram.length - 1]
-  };
-}
-
-// --- ATR ---
-function calculateATR(klines, period) {
-  if (klines.length <= period) return null;
-  const highs = extractHighs(klines);
-  const lows = extractLows(klines);
-  const closes = extractCloses(klines);
-  let trs = [];
-  for (let i = 1; i < highs.length; i++) {
-    const tr = Math.max(
-      highs[i] - lows[i],
-      Math.abs(highs[i] - closes[i - 1]),
-      Math.abs(lows[i] - closes[i - 1])
-    );
-    trs.push(tr);
-  }
-  let atr = trs.slice(0, period).reduce((a, b) => a + b, 0) / period;
-  for (let i = period; i < trs.length; i++) {
-    atr = (atr * (period - 1) + trs[i]) / period;
-  }
-  return atr;
-}
-
-// --- OBV ---
-function calculateOBV(klines) {
-  if (klines.length < 2) return null;
-  const closes = extractCloses(klines);
-  const volumes = extractVolumes(klines);
-  let obv = 0;
-  for (let i = 1; i < closes.length; i++) {
-    if (closes[i] > closes[i - 1]) obv += volumes[i];
-    else if (closes[i] < closes[i - 1]) obv -= volumes[i];
-  }
-  return obv;
-}
-
-// --- ROC ---
-function calculateROC(closes, period) {
-  if (closes.length <= period) return null;
-  return ((closes[closes.length - 1] - closes[closes.length - 1 - period]) / closes[closes.length - 1 - period]) * 100;
-}
-
-// --- Williams %R ---
-function calculateWilliamsR(klines, period) {
-  if (klines.length < period) return null;
-  const highs = extractHighs(klines);
-  const lows = extractLows(klines);
-  const closes = extractCloses(klines);
-  const sliceHigh = highs.slice(-period);
-  const sliceLow = lows.slice(-period);
-  const highestHigh = Math.max(...sliceHigh);
-  const lowestLow = Math.min(...sliceLow);
-  const lastClose = closes[closes.length - 1];
-  return ((highestHigh - lastClose) / (highestHigh - lowestLow)) * -100;
-}
-
-// --- Momentum (MTM) ---
-function calculateMomentum(closes, period) {
-  if (closes.length <= period) return null;
-  return closes[closes.length - 1] - closes[closes.length - 1 - period];
-}
-
-// --- MFI ---
-function calculateMFI(klines, period) {
-  if (klines.length < period + 1) return null;
-  let positiveFlow = 0;
-  let negativeFlow = 0;
-  for (let i = 1; i <= period; i++) {
-    const tpCurrent = (parseFloat(klines[klines.length - 1 - period + i][2]) + parseFloat(klines[klines.length - 1 - period + i][3]) + parseFloat(klines[klines.length - 1 - period + i][4])) / 3;
-    const tpPrev = (parseFloat(klines[klines.length - 1 - period + i - 1][2]) + parseFloat(klines[klines.length - 1 - period + i - 1][3]) + parseFloat(klines[klines.length - 1 - period + i - 1][4])) / 3;
-    const volume = parseFloat(klines[klines.length - 1 - period + i][5]);
-    if (tpCurrent > tpPrev) positiveFlow += tpCurrent * volume;
-    else negativeFlow += tpCurrent * volume;
-  }
-  if (negativeFlow === 0) return 100;
-  const moneyFlowRatio = positiveFlow / negativeFlow;
-  const mfi = 100 - 100 / (1 + moneyFlowRatio);
-  return mfi;
-}
-
-// --- Parabolic SAR (simplified) ---
-function calculateSAR(klines, step = 0.02, maxStep = 0.2) {
-  if (klines.length < 2) return null;
-  let sar = parseFloat(klines[0][3]); // start with first low
-  let ep = parseFloat(klines[0][2]);  // extreme point high
-  let af = step;
-  let uptrend = true;
-  for (let i = 1; i < klines.length; i++) {
-    let high = parseFloat(klines[i][2]);
-    let low = parseFloat(klines[i][3]);
-    if (uptrend) {
-      sar = sar + af * (ep - sar);
-      if (low < sar) {
-        uptrend = false;
-        sar = ep;
-        ep = low;
-        af = step;
-      }
-      if (high > ep) {
-        ep = high;
-        af = Math.min(af + step, maxStep);
-      }
-    } else {
-      sar = sar + af * (ep - sar);
-      if (high > sar) {
-        uptrend = true;
-        sar = ep;
-        ep = high;
-        af = step;
-      }
-      if (low < ep) {
-        ep = low;
-        af = Math.min(af + step, maxStep);
-      }
-    }
-  }
-  return sar;
-}
-
-// --- DMI (ADX simplified) ---
-function calculateDMI(klines, period = 14) {
-  if (klines.length < period + 1) return null;
-  const highs = extractHighs(klines);
-  const lows = extractLows(klines);
-  const closes = extractCloses(klines);
-
-  let plusDM = 0;
-  let minusDM = 0;
-  let trSum = 0;
-
-  for (let i = 1; i < klines.length; i++) {
-    const upMove = highs[i] - highs[i - 1];
-    const downMove = lows[i - 1] - lows[i];
-    plusDM += (upMove > downMove && upMove > 0) ? upMove : 0;
-    minusDM += (downMove > upMove && downMove > 0) ? downMove : 0;
-    const tr = Math.max(
-      highs[i] - lows[i],
-      Math.abs(highs[i] - closes[i - 1]),
-      Math.abs(lows[i] - closes[i - 1])
-    );
-    trSum += tr;
-  }
-
-  if (trSum === 0) return null;
-  const plusDI = (plusDM / trSum) * 100;
-  const minusDI = (minusDM / trSum) * 100;
-  const dx = Math.abs(plusDI - minusDI) / (plusDI + minusDI) * 100;
-
-  // ADX as average DX over period (simplified)
-  let adx = dx;
-
-  return {
-    plusDI,
-    minusDI,
-    adx,
-  };
-}
-
-// --- ROC ---
-function calculateROC(closes, period) {
-  if (closes.length <= period) return null;
-  return ((closes[closes.length - 1] - closes[closes.length - 1 - period]) / closes[closes.length - 1 - period]) * 100;
-}
-
-// --- Compose response message ---
-function composeMessage(symbol, interval, closes, klines) {
-  let msg = `📊 *${symbol} ${interval} Technical Indicators*\n\n`;
+  // SMA & EMA & WMA periods
+  const periodsSMA_EMA = [5, 13, 21, 50, 100, 200];
+  const periodsWMA = [5, 13, 21, 50, 100];
 
   // SMA
-  msg += `*SMA:* `;
-  smaPeriods.forEach(p => {
-    msg += `${p}: ${formatNum(calculateSMA(closes, p))}  `;
+  let sma = {};
+  periodsSMA_EMA.forEach(p => {
+    sma[p] = technicalindicators.SMA.calculate({ period: p, values: close });
   });
-  msg += `\n`;
 
   // EMA
-  msg += `*EMA:* `;
-  emaPeriods.forEach(p => {
-    msg += `${p}: ${formatNum(calculateEMA(closes, p))}  `;
+  let ema = {};
+  periodsSMA_EMA.forEach(p => {
+    ema[p] = technicalindicators.EMA.calculate({ period: p, values: close });
   });
-  msg += `\n`;
 
   // WMA
-  msg += `*WMA:* `;
-  wmaPeriods.forEach(p => {
-    msg += `${p}: ${formatNum(calculateWMA(closes, p))}  `;
+  let wma = {};
+  periodsWMA.forEach(p => {
+    wma[p] = technicalindicators.WMA.calculate({ period: p, values: close });
   });
-  msg += `\n`;
 
-  // RSI
-  msg += `*RSI:* `;
-  rsiPeriods.forEach(p => {
-    msg += `${p}: ${formatNum(calculateRSI(closes, p))}  `;
+  // RSI 5, 14
+  const rsi5 = technicalindicators.RSI.calculate({ period: 5, values: close });
+  const rsi14 = technicalindicators.RSI.calculate({ period: 14, values: close });
+
+  // MACD (3,10,16)
+  const macd = technicalindicators.MACD.calculate({
+    values: close,
+    fastPeriod: 3,
+    slowPeriod: 10,
+    signalPeriod: 16,
+    SimpleMAOscillator: false,
+    SimpleMASignal: false
   });
-  msg += `\n`;
 
-  // Stoch RSI
-  const stochRsi = calculateStochRSI(closes, stochRsiParams.rsiPeriod, stochRsiParams.stochPeriod, stochRsiParams.kPeriod, stochRsiParams.dPeriod);
-  if (stochRsi) {
-    msg += `*Stoch RSI:* K: ${formatNum(stochRsi.K)} D: ${formatNum(stochRsi.D)}\n`;
-  }
+  // Stochastic RSI (14,14,3,3)
+  const stochRSI = technicalindicators.StochasticRSI.calculate({
+    values: close,
+    rsiPeriod: 14,
+    stochasticPeriod: 14,
+    kPeriod: 3,
+    dPeriod: 3
+  });
 
-  // MACD
-  const macd = calculateMACD(closes, macdParams.fast, macdParams.slow, macdParams.signal);
-  if (macd) {
-    msg += `*MACD:* MACD: ${formatNum(macd.macd)} Signal: ${formatNum(macd.signal)} Histogram: ${formatNum(macd.histogram)}\n`;
-  }
+  // DMI (14)
+  const dmi = technicalindicators.DMI.calculate({
+    high,
+    low,
+    close,
+    period: 14
+  });
 
-  // ATR
-  const atr = calculateATR(klines, atrPeriod);
-  if (atr) {
-    msg += `*ATR (${atrPeriod}):* ${formatNum(atr)}\n`;
-  }
+  // MFI (14 and 21)
+  const mfi14 = technicalindicators.MFI.calculate({ high, low, close, volume, period: 14 });
+  const mfi21 = technicalindicators.MFI.calculate({ high, low, close, volume, period: 21 });
+
+  // Bollinger Bands (20, 2)
+  const bb = technicalindicators.BollingerBands.calculate({
+    period: 20,
+    values: close,
+    stdDev: 2
+  });
+
+  // VWAP (1 and 5)
+  const vwap1 = calculateVWAP(candles, 1);
+  const vwap5 = calculateVWAP(candles, 5);
+
+  // TRIX (9)
+  const trix = technicalindicators.TRIX.calculate({ values: close, period: 9 });
+
+  // ATR (14)
+  const atr = technicalindicators.ATR.calculate({ high, low, close, period: 14 });
 
   // OBV
-  const obv = calculateOBV(klines);
-  if (obv !== null) {
-    msg += `*OBV:* ${formatNum(obv, 0)}\n`;
+  const obv = technicalindicators.OBV.calculate({ close, volume });
+
+  // SAR (0.02, 0.2)
+  const sar = technicalindicators.SAR.calculate({ high, low, step: 0.02, max: 0.2 });
+
+  // Williams %R (14)
+  const williamsR = technicalindicators.WilliamsR.calculate({ high, low, close, period: 14 });
+
+  // CCI (7,10,20)
+  const cci7 = technicalindicators.CCI.calculate({ high, low, close, period: 7 });
+  const cci10 = technicalindicators.CCI.calculate({ high, low, close, period: 10 });
+  const cci20 = technicalindicators.CCI.calculate({ high, low, close, period: 20 });
+
+  // MTM (7,14,21)
+  const mtm7 = technicalindicators.MTM.calculate({ values: close, period: 7 });
+  const mtm14 = technicalindicators.MTM.calculate({ values: close, period: 14 });
+  const mtm21 = technicalindicators.MTM.calculate({ values: close, period: 21 });
+
+  // KDJ Approximation (using Stoch)
+  const stochastic = technicalindicators.Stochastic.calculate({
+    high,
+    low,
+    close,
+    period: 14,
+    signalPeriod: 3
+  });
+
+  // Extract last values safely
+  function last(arr) {
+    return arr.length ? arr[arr.length - 1] : null;
   }
 
-  // ROC
-  const roc = calculateROC(closes, rocPeriod);
-  if (roc !== null) {
-    msg += `*ROC (${rocPeriod}
+  return {
+    sma: Object.fromEntries(periodsSMA_EMA.map(p => [p, last(sma[p])])),
+    ema: Object.fromEntries(periodsSMA_EMA.map(p => [p, last(ema[p])])),
+    wma: Object.fromEntries(periodsWMA.map(p => [p, last(wma[p])])),
+    rsi5: last(rsi5),
+    rsi14: last(rsi14),
+    macd: last(macd),
+    stochRSI: last(stochRSI),
+    dmi: last(dmi),
+    mfi14: last(mfi14),
+    mfi21: last(mfi21),
+    bb: last(bb),
+    vwap1: last(vwap1),
+    vwap5: last(vwap5),
+    trix: last(trix),
+    atr: last(atr),
+    obv: last(obv),
+    sar: last(sar),
+    williamsR: last(williamsR),
+    cci7: last(cci7),
+    cci10: last(cci10),
+    cci20: last(cci20),
+    mtm7: last(mtm7),
+    mtm14: last(mtm14),
+    mtm21: last(mtm21),
+    stochastic: last(stochastic)
+  };
+}
+
+function formatIndicatorOutput(ind) {
+  return `
+SMA: 5=${ind.sma[5]?.toFixed(3)}, 13=${ind.sma[13]?.toFixed(3)}, 21=${ind.sma[21]?.toFixed(3)}, 50=${ind.sma[50]?.toFixed(3)}, 100=${ind.sma[100]?.toFixed(3)}, 200=${ind.sma[200]?.toFixed(3)}
+EMA: 5=${ind.ema[5]?.toFixed(3)}, 13=${ind.ema[13]?.toFixed(3)}, 21=${ind.ema[21]?.toFixed(3)}, 50=${ind.ema[50]?.toFixed(3)}, 100=${ind.ema[100]?.toFixed(3)}, 200=${ind.ema[200]?.toFixed(3)}
+WMA: 5=${ind.wma[5]?.toFixed(3)}, 13=${ind.wma[13]?.toFixed(3)}, 21=${ind.wma[21]?.toFixed(3)}, 50=${ind.wma[50]?.toFixed(3)}, 100=${ind.wma[100]?.toFixed(3)}
+
+RSI: 5=${ind.rsi5?.toFixed(2)}, 14=${ind.rsi14?.toFixed(2)}
+MACD: MACD=${ind.macd?.MACD.toFixed(3)}, Signal=${ind.macd?.signal.toFixed(3)}, Histogram=${ind.macd?.histogram.toFixed(3)}
+Stoch RSI: K=${ind.stochRSI?.k.toFixed(2)}, D=${ind.stochRSI?.d.toFixed(2)}
+DMI: +DI=${ind.dmi?.pdi.toFixed(2)}, -DI=${ind.dmi?.mdi.toFixed(2)}, ADX=${ind.dmi?.adx.toFixed(2)}
+MFI: 14=${ind.mfi14?.toFixed(2)}, 21=${ind.mfi21?.toFixed(2)}
+Bollinger Bands: Lower=${ind.bb?.lower.toFixed(3)}, Middle=${ind.bb?.middle.toFixed(3)}, Upper=${ind.bb?.upper.toFixed(3)}
+VWAP: 1=${ind.vwap1?.toFixed(3)}, 5=${ind.vwap5?.toFixed(3)}
+TRIX: ${ind.trix?.toFixed(3)}
+ATR: ${ind.atr?.toFixed(3)}
+OBV: ${ind.obv?.toFixed(0)}
+SAR: ${ind.sar?.toFixed(3)}
+Williams %R: ${ind.williamsR?.toFixed(2)}
+CCI: 7=${ind.cci7?.toFixed(2)}, 10=${ind.cci10?.toFixed(2)}, 20=${ind.cci20?.toFixed(2)}
+MTM: 7=${ind.mtm7?.toFixed(3)}, 14=${ind.mtm14?.toFixed(3)}, 21=${ind.mtm21?.toFixed(3)}
+KDJ (Stoch): K=${ind.stochastic?.k.toFixed(2)}, D=${ind.stochastic?.d.toFixed(2)}, J=${(3 * ind.stochastic?.k - 2 * ind.stochastic?.d).toFixed(2)}
+`.trim();
+}
+
+bot.onText(/\/start/, (msg) => {
+  bot.sendMessage(msg.chat.id, `Hello ${msg.from.first_name}, welcome to your Crypto Indicator Bot! 
+Send me commands like 'eth1h', 'btc4h', 'link12h' to get detailed indicators.`);
+});
+
+bot.on('message', async (msg) => {
+  const chatId = msg.chat.id;
+  const text = msg.text?.toLowerCase();
+
+  if (!text || !symbolsMap[text]) return; // Ignore unknown messages
+
+  const { symbol, interval, name } = symbolsMap[text];
+
+  bot.sendMessage(chatId, `Fetching ${name} data for ${interval}... Please wait.`);
+
+  try {
+    const candles = await fetchCandles(symbol, interval);
+    const indicators = calculateIndicators(candles);
+    const output = formatIndicatorOutput(indicators);
+
+    bot.sendMessage(chatId, `📊 *${name} ${interval} Technical Indicators:*\n\n${output}`, { parse_mode: 'Markdown' });
+  } catch (e) {
+    bot.sendMessage(chatId, 'Sorry, there was an error fetching data. Please try again later.');
+  }
+});
+
+// Basic express setup so you can deploy on Render or Heroku easily
+app.get('/', (req, res) => {
+  res.send('Crypto Indicator Bot is running.');
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
