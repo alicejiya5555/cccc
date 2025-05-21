@@ -145,9 +145,6 @@ function generateOutput(binanceData, indicators, name = "Symbol", tfLabel = "Tim
  - WMA 100: $${indicators.wma100}
 
 `;
-
-// Assuming `close` is your array of close prices
-
 const fastEMA = ti.EMA.calculate({ period: 3, values: close });
 const slowEMA = ti.EMA.calculate({ period: 10, values: close });
 
