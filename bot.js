@@ -1,91 +1,86 @@
-const TelegramBot = require("node-telegram-bot-api");
-const axios = require("axios");
+const TelegramBot = require('node-telegram-bot-api');
+const axios = require('axios');
+const express = require('express');
 
-const TELEGRAM_TOKEN = "7726468556:AAGGs7tVZekeVBcHJQYz4PPh5esQp3qkcjk";
-const CHAT_ID = "7538764539";
-const TWELVE_API_KEY = "4682ca818a8048e8a8559617a7076638";
+const token = '7726468556:AAGGs7tVZekeVBcHJQYz4PPh5esQp3qkcjk';
+const chatId = '7538764539';
+const twelveApiKey = '4682ca818a8048e8a8559617a7076638';
+const bot = new TelegramBot(token, { polling: true });
 
-const bot = new TelegramBot(TELEGRAM_TOKEN, { polling: true });
-
+// ──────────────────────────────────────
+// HELPERS
+const formatNum = num => Number(num).toLocaleString('en-UK', { maximumFractionDigits: 4 });
+const pairs = {
+  btc: 'BTC/USDT',
+  eth: 'ETH/USDT',
+  link: 'LINK/USDT'
+};
 const timeFrames = {
-  "15m": "15min",
-  "1h": "1h",
-  "4h": "4h",
-  "1d": "1day"
+  '15m': '15min',
+  '1h': '1h',
+  '4h': '4h',
+  '1d': '1day'
 };
 
-const symbols = {
-  btc: "BTC",
-  eth: "ETH",
-  link: "LINK"
-};
-
-function formatNum(num) {
-  return parseFloat(num).toLocaleString("en-US", { maximumFractionDigits: 4 });
-}
-
-function buildTwelveUrl(indicator, symbol, interval, extra = "") {
-  return `https://api.twelvedata.com/${indicator}?symbol=${symbol}/USD&interval=${interval}&apikey=${TWELVE_API_KEY}${extra}`;
-}
-
-bot.on("message", async (msg) => {
+// ──────────────────────────────────────
+// MAIN MESSAGE HANDLER
+bot.on('message', async msg => {
   const text = msg.text.toLowerCase();
+  const match = text.match(/(btc|eth|link)(15m|1h|4h|1d)/);
 
-  const regex = /^(btc|eth|link)(15m|1h|4h|1d)$/;
-  const match = text.match(regex);
   if (!match) return;
 
-  const coin = match[1];
+  const symbol = match[1];
   const tf = match[2];
-  const tfLabel = tf.toUpperCase();
-  const interval = timeFrames[tf];
-  const symbol = symbols[coin];
+  const tfLabel = timeFrames[tf];
+  const name = symbol.toUpperCase();
+
+  const binanceSymbol = symbol.toUpperCase() + 'USDT';
 
   try {
-    // Binance Data
-    const binanceRes = await axios.get(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}USDT`);
-    const b = binanceRes.data;
+    const binanceRes = await axios.get(`https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSymbol}`);
+    const binanceData = binanceRes.data;
 
-    // Indicators
-    const indicators = await Promise.all([
-      axios.get(buildTwelveUrl("ma", symbol, interval, "&time_period=5&type=sma")),
-      axios.get(buildTwelveUrl("ema", symbol, interval, "&time_period=13")),
-      axios.get(buildTwelveUrl("wma", symbol, interval)),
-      axios.get(buildTwelveUrl("rsi", symbol, interval, "&time_period=5")),
-      axios.get(buildTwelveUrl("rsi", symbol, interval, "&time_period=14")),
-      axios.get(buildTwelveUrl("macd", symbol, interval, "&fast_period=3&slow_period=10&signal_period=16")),
-      axios.get(buildTwelveUrl("bbands", symbol, interval))
-    ]);
+    const ma5 = await axios.get(`https://api.twelvedata.com/ma?symbol=${pairs[symbol]}&interval=${tfLabel}&time_period=5&type=sma&apikey=${twelveApiKey}`);
+    const ema5 = await axios.get(`https://api.twelvedata.com/ema?symbol=${pairs[symbol]}&interval=${tfLabel}&time_period=5&apikey=${twelveApiKey}`);
+    const macd = await axios.get(`https://api.twelvedata.com/macd?symbol=${pairs[symbol]}&interval=${tfLabel}&fast_period=3&slow_period=10&signal_period=16&apikey=${twelveApiKey}`);
+    const rsi5 = await axios.get(`https://api.twelvedata.com/rsi?symbol=${pairs[symbol]}&interval=${tfLabel}&time_period=5&apikey=${twelveApiKey}`);
+    const boll = await axios.get(`https://api.twelvedata.com/bbands?symbol=${pairs[symbol]}&interval=${tfLabel}&apikey=${twelveApiKey}`);
 
-    const [sma5, ema13, wma, rsi5, rsi14, macd, bb] = indicators.map((res) => res.data.values?.[0] || {});
+    const message = `📊 ${name} ${tfLabel} Analysis
 
-    const message = `📊 ${symbol} ${tfLabel} Analysis
+💰 Price: $${formatNum(binanceData.lastPrice)}
+📈 High: $${formatNum(binanceData.highPrice)}   📉 Low: $${formatNum(binanceData.lowPrice)}
+🔁 Change: $${formatNum(binanceData.priceChange)} (${binanceData.priceChangePercent}%)
+🧮 Volume: ${formatNum(binanceData.volume)}
+💵 Quote Volume: $${formatNum(binanceData.quoteVolume)}
 
-💰 Price: $${formatNum(b.lastPrice)}
-📈 24h High: $${formatNum(b.highPrice)}
-📉 24h Low: $${formatNum(b.lowPrice)}
-🔁 Change: $${formatNum(b.priceChange)} (${b.priceChangePercent}%)
-🧮 Volume: ${formatNum(b.volume)}
-💵 Quote Volume: $${formatNum(b.quoteVolume)}
-🔓 Open Price: $${formatNum(b.openPrice)}
-⏰ Close Time: ${new Date(b.closeTime).toLocaleString('en-UK')}
-
-📌 Indicators:
-📏 SMA(5): ${sma5.value || "N/A"}
-📏 EMA(13): ${ema13.value || "N/A"}
-📏 WMA(5): ${wma.value || "N/A"}
-📊 RSI(5): ${rsi5.value || "N/A"}
-📊 RSI(14): ${rsi14.value || "N/A"}
-📉 MACD: ${macd.macd || "N/A"} (Signal: ${macd.signal || "N/A"})
-📈 Bollinger Bands:
-  🔺 Upper: ${bb.upper_band || "N/A"}
-  🔸 Middle: ${bb.middle_band || "N/A"}
-  🔻 Lower: ${bb.lower_band || "N/A"}
+📐 MA(5): ${ma5.data.value}
+📐 EMA(5): ${ema5.data.value}
+📈 MACD: ${macd.data.macd} | Signal: ${macd.data.signal} | Histogram: ${macd.data.histogram}
+📊 RSI(5): ${rsi5.data.value}
+🎯 Bollinger Bands:
+   ┗ UP: ${boll.data.upper_band}
+   ┗ MB: ${boll.data.middle_band}
+   ┗ DN: ${boll.data.lower_band}
 `;
 
-    bot.sendMessage(CHAT_ID, message);
-  } catch (err) {
-    console.error("Error:", err.message);
-    bot.sendMessage(CHAT_ID, "⚠️ Failed to fetch data. Please try again later.");
+    bot.sendMessage(chatId, message);
+  } catch (error) {
+    console.error('Error:', error.message);
+    bot.sendMessage(chatId, `❌ Error fetching data. Try again later.`);
   }
+});
+
+// ──────────────────────────────────────
+// DUMMY EXPRESS SERVER FOR RENDER
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.send('Telegram bot is running...');
+});
+
+app.listen(PORT, () => {
+  console.log(`Listening on port ${PORT}`);
 });
