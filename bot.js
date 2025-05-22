@@ -183,30 +183,7 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 
 `;
 
- const messagesection =
- `⚡ Calculate and measure these values for best output (message):
-📍 Final Signal Summary
-📉 Trend Direction
-🕰 Best UTC Entry & Exit Times
-🔮 Short-Term & Mid-Term Price Prediction
-🛡 Entry Zone, Take Profit, Stop Loss
-📢 Final Trade Advice (Mindset + Strategy)
-Some Other Information if you can Provide:
-📊 Indicator Behavior Breakdown
- ⚠️ Volatility + Breakout Scan
- 🔁 Reversal vs Continuation Clarity
- 🌡 Momentum Heatmap
- 📈 Volume & OBV Strength
- 🧮 Fibonacci Zones
- ⏳ Multi-Timeframe Comparison
- 🐋 Whale vs Retail Movement
- 🕯 Candle Pattern Alerts
- 🧠 Strategy Type Suggestion
- 📅 3-Day or Weekly Forecast
-
-`;
-
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + message;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection;
 }
 
 // --- Command Handler ---
