@@ -161,7 +161,7 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 `;
 
   const macdSection =
-`📉 MACD: (3,10,16)
+`📉 MACD:
  - MACD: ${indicators.macdValue}
  - Signal: ${indicators.macdSignal}
  - Histogram: ${indicators.macdHistogram}
@@ -185,6 +185,47 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 
   return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection;
 }
+
+{
+Calculate and measure these values for best output
+
+📍 Final Signal Summary
+
+📉 Trend Direction
+
+🕰 Best UTC Entry & Exit Times
+
+🔮 Short-Term & Mid-Term Price Prediction
+
+🛡 Entry Zone, Take Profit, Stop Loss
+
+📢 Final Trade Advice (Mindset + Strategy)
+
+Some Other Information if you can Provide:
+
+📊 Indicator Behavior Breakdown
+
+ ⚠️ Volatility + Breakout Scan
+
+ 🔁 Reversal vs Continuation Clarity
+
+ 🌡 Momentum Heatmap
+
+ 📈 Volume & OBV Strength
+
+ 🧮 Fibonacci Zones
+
+ ⏳ Multi-Timeframe Comparison
+
+ 🐋 Whale vs Retail Movement
+
+ 🕯 Candle Pattern Alerts
+
+ 🧠 Strategy Type Suggestion
+
+ 📅 3-Day or Weekly Forecast
+
+Designed by: { Muhammad Shahbaz }
 
 // --- Command Handler ---
 bot.on("text", async (ctx) => {
