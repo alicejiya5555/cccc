@@ -186,7 +186,8 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
   return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection;
 }
 
-{
+`;
+
 Calculate and measure these values for best output
 
 📍 Final Signal Summary
@@ -225,7 +226,9 @@ Some Other Information if you can Provide:
 
  📅 3-Day or Weekly Forecast
 
-Designed by: { Muhammad Shahbaz }
+Designed by: { Muhammad Shahbaz 
+
+`;
 
 // --- Command Handler ---
 bot.on("text", async (ctx) => {
