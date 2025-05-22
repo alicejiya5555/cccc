@@ -2,7 +2,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 
 // Bot credentials
-const TOKEN = '7655482876:AAHsd4CU3uLo1Kb0C7aWa_hgESOFmOQrNw0';
+const TOKEN = '7726468556:AAFQbeh4hmom8_4gRRxVzTwOxx5beWdQJB0';
 const CHAT_ID = '7538764539';
 const bot = new TelegramBot(TOKEN, { polling: true });
 
