@@ -1,10 +1,11 @@
 {
   "name": "telegram-binance-bot",
   "version": "1.0.0",
-  "description": "Telegram bot fetching Binance crypto analysis with technical indicators",
-  "main": "index.js",
+  "description": "Telegram bot providing Binance crypto analysis with technical indicators",
+  "main": "bot.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node bot.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Natalia",
   "license": "MIT",
@@ -13,6 +14,6 @@
     "node-telegram-bot-api": "^0.61.0"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=18.0.0"
   }
 }
