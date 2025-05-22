@@ -19,7 +19,7 @@ function parseCommand(command) {
     : symbolRaw === "link" ? "LINKUSDT"
     : null;
   if (!symbol) return null;
-  const interval = ${intervalNum}${intervalUnit};
+  const interval = `${intervalNum}${intervalUnit}`;
   return { symbol, interval };
 }
 
@@ -34,8 +34,8 @@ function formatNum(num) {
 // --- Binance Data Fetch ---
 async function getBinanceData(symbol, interval) {
   const [priceRes, candlesRes] = await Promise.all([
-    axios.get(https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}),
-    axios.get(https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=200)
+    axios.get(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`),
+    axios.get(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=200`)
   ]);
 
   const priceData = priceRes.data;
@@ -115,7 +115,7 @@ function calculateIndicators(candles) {
 // --- Output Message Generator ---
 function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timeframe") {
   const header = 
-📊 ${name} ${tfLabel} Analysis
+`📊 ${name} ${tfLabel} Analysis
 
 💰 Price: $${formatNum(priceData.lastPrice)}
 📈 24h High: $${formatNum(priceData.highPrice)}
@@ -126,10 +126,10 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 🔓 Open Price: $${formatNum(priceData.openPrice)}
 ⏰ Close Time: ${new Date(priceData.closeTime).toLocaleString('en-UK')}
 
-;
+`;
 
   const smaSection = 
-📊 Simple Moving Averages (SMA):
+`📊 Simple Moving Averages (SMA):
  - SMA 5: $${indicators.sma5}
  - SMA 13: $${indicators.sma13}
  - SMA 21: $${indicators.sma21}
@@ -137,10 +137,10 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
  - SMA 100: $${indicators.sma100}
  - SMA 200: $${indicators.sma200}
 
-;
+`;
 
   const emaSection =
-📈 Exponential Moving Averages (EMA):
+`📈 Exponential Moving Averages (EMA):
  - EMA 5: $${indicators.ema5}
  - EMA 13: $${indicators.ema13}
  - EMA 21: $${indicators.ema21}
@@ -148,73 +148,48 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
  - EMA 100: $${indicators.ema100}
  - EMA 200: $${indicators.ema200}
 
-;
+`;
 
   const wmaSection =
-⚖️ Weighted Moving Averages (WMA):
+`⚖️ Weighted Moving Averages (WMA):
  - WMA 5: $${indicators.wma5}
  - WMA 13: $${indicators.wma13}
  - WMA 21: $${indicators.wma21}
  - WMA 50: $${indicators.wma50}
  - WMA 100: $${indicators.wma100}
 
-;
+`;
 
   const macdSection =
-📉 MACD:
+`📉 MACD:
  - MACD: ${indicators.macdValue}
  - Signal: ${indicators.macdSignal}
  - Histogram: ${indicators.macdHistogram}
 
-;
+`;
 
   const bbSection =
-🎯 Bollinger Bands (20, 2 StdDev):
+`🎯 Bollinger Bands (20, 2 StdDev):
  - Upper Band: $${indicators.bbUpper}
  - Middle Band: $${indicators.bbMiddle}
  - Lower Band: $${indicators.bbLower}
 
-;
+`;
 
   const rsiSection =
-⚡ Relative Strength Index (RSI):
+`⚡ Relative Strength Index (RSI):
  - RSI (5): ${indicators.rsi5}
  - RSI (14): ${indicators.rsi14}
 
-;
+`;
 
-// Your added custom words here:
-  const extraNotes =
-
-Calculate and measure these values for best output
-
-📍 Final Signal Summary
-📉 Trend Direction
-🕰 Best UTC Entry & Exit Times
-🔮 Short-Term & Mid-Term Price Prediction
-🛡 Entry Zone, Take Profit, Stop Loss
-📢 Final Trade Advice (Mindset + Strategy)
-Some Other Information if you can Provide:
-📊 Indicator Behavior Breakdown
-⚠️ Volatility + Breakout Scan
-🔁 Reversal vs Continuation Clarity
-🌡 Momentum Heatmap
-📈 Volume & OBV Strength
-🧮 Fibonacci Zones
-⏳ Multi-Timeframe Comparison
-🐋 Whale vs Retail Movement
-🕯 Candle Pattern Alerts
-🧠 Strategy Type Suggestion
-📅 3-Day or Weekly Forecast
-;
-
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection;
 }
 
 // --- Command Handler ---
 bot.on("text", async (ctx) => {
   const parsed = parseCommand(ctx.message.text);
-  if (!parsed) return ctx.reply("❌ Invalid format. Try /eth1h, /btc15m, /link4h");
+  if (!parsed) return ctx.reply("❌ Invalid format. Try `/eth1h`, `/btc15m`, `/link4h`");
 
   try {
     const { symbol, interval } = parsed;
@@ -237,6 +212,6 @@ bot.on("text", async (ctx) => {
 const app = express();
 app.get("/", (req, res) => res.send("Bot is running"));
 app.listen(PORT, () => {
-  console.log(Server running on port ${PORT});
+  console.log(`Server running on port ${PORT}`);
   bot.launch();
 });
