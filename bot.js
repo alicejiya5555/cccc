@@ -2,7 +2,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 
 // Bot credentials
-const TOKEN = '7655482876:AAERSecFW2yk7y9QFh2kYFph0RXM9ofhQTY';
+const TOKEN = '7655482876:AAHsd4CU3uLo1Kb0C7aWa_hgESOFmOQrNw0';
 const CHAT_ID = '7538764539';
 const bot = new TelegramBot(TOKEN, { polling: true });
 
@@ -166,11 +166,3 @@ function calcMACD(arr, fast = 12, slow = 26, signal = 9) {
     histogram: histogram.at(-1),
   };
 }
-
-// --- Web Server (keep-alive for Render/Heroku) ---
-const app = express();
-app.get("/", (req, res) => res.send("Bot is running"));
-app.listen(PORT, () => {
-  console.log(`Server running on port ${3000}`);
-  bot.launch();
-});
