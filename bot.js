@@ -5,6 +5,7 @@ const axios = require('axios');
 const TOKEN = '7726468556:AAFQbeh4hmom8_4gRRxVzTwOxx5beWdQJB0';
 const CHAT_ID = '7538764539';
 const bot = new TelegramBot(TOKEN, { polling: true });
+const PORT = process.env.PORT || 3000;
 
 // Binance API endpoint
 const BASE_URL = 'https://api.binance.com';
@@ -166,3 +167,11 @@ function calcMACD(arr, fast = 12, slow = 26, signal = 9) {
     histogram: histogram.at(-1),
   };
 }
+
+// --- Web Server (keep-alive for Render/Heroku) ---
+const app = express();
+app.get("/", (req, res) => res.send("Bot is running"));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  bot.launch();
+});
