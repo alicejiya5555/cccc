@@ -1,168 +1,217 @@
-const TelegramBot = require('node-telegram-bot-api');
-const axios = require('axios');
+import { Telegraf } from "telegraf";
+import axios from "axios";
+import ti from "technicalindicators";
+import express from "express";
 
-// Bot credentials
-const TOKEN = '7726468556:AAFQbeh4hmom8_4gRRxVzTwOxx5beWdQJB0';
-const CHAT_ID = '7538764539';
-const bot = new TelegramBot(TOKEN, { polling: true });
+// --- Bot Init ---
+const BOT_TOKEN = "7726468556:AAFQbeh4hmom8_4gRRxVzTwOxx5beWdQJB0";
+const bot = new Telegraf(BOT_TOKEN);
+const PORT = process.env.PORT || 3000;
 
-// Binance API endpoint
-const BASE_URL = 'https://api.binance.com';
+// --- Utility Functions ---
+function parseCommand(command) {
+  const cmd = command.toLowerCase();
+  const match = cmd.match(/^\/(\w+)(\d+)(m|h)$/);
+  if (!match) return null;
+  const [, symbolRaw, intervalNum, intervalUnit] = match;
+  const symbol = symbolRaw === "eth" ? "ETHUSDT"
+    : symbolRaw === "btc" ? "BTCUSDT"
+    : symbolRaw === "link" ? "LINKUSDT"
+    : null;
+  if (!symbol) return null;
+  const interval = `${intervalNum}${intervalUnit}`;
+  return { symbol, interval };
+}
 
-// Format number
-const formatNum = (num) => parseFloat(num).toFixed(4);
-
-// Get indicator direction symbol
-const direction = (curr, prev) => (curr > prev ? '📈 +' : curr < prev ? '📉 -' : '➖');
-
-// Get Binance OHLCV + indicators (mocked where necessary)
-async function fetchAnalysis(symbol = 'ETHUSDT', interval = '1h') {
-  const priceRes = await axios.get(`${BASE_URL}/api/v3/ticker/24hr`, {
-    params: { symbol },
+function formatNum(num) {
+  if (num === undefined || num === null || isNaN(num)) return "N/A";
+  return parseFloat(num).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
   });
+}
 
-  const klinesRes = await axios.get(`${BASE_URL}/api/v3/klines`, {
-    params: { symbol, interval, limit: 200 },
-  });
+// --- Binance Data Fetch ---
+async function getBinanceData(symbol, interval) {
+  const [priceRes, candlesRes] = await Promise.all([
+    axios.get(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`),
+    axios.get(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=200`)
+  ]);
 
-  const candles = klinesRes.data.map(c => ({
+  const priceData = priceRes.data;
+  const candles = candlesRes.data.map(c => ({
+    time: c[0],
     open: parseFloat(c[1]),
     high: parseFloat(c[2]),
     low: parseFloat(c[3]),
     close: parseFloat(c[4]),
-    volume: parseFloat(c[5]),
+    volume: parseFloat(c[5])
   }));
 
-  const closes = candles.map(c => c.close);
-  const rsi5 = calcRSI(closes, 5);
-  const rsi14 = calcRSI(closes, 14);
-  const sma = [5, 13, 21, 50, 100, 200].reduce((acc, len) => {
-    acc[`sma${len}`] = formatNum(calcSMA(closes, len));
-    return acc;
-  }, {});
-  const ema = [5, 13, 21, 50, 100, 200].reduce((acc, len) => {
-    acc[`ema${len}`] = formatNum(calcEMA(closes, len));
-    return acc;
-  }, {});
-  const wma = [5, 13, 21, 50, 100].reduce((acc, len) => {
-    acc[`wma${len}`] = formatNum(calcWMA(closes, len));
-    return acc;
-  }, {});
-  const { macd, signal, histogram } = calcMACD(closes);
+  return { priceData, candles };
+}
 
-  // Determine majority
-  let bullish = 0, bearish = 0;
-  [5, 13, 21, 50, 100, 200].forEach(len => {
-    if (closes.at(-1) > calcEMA(closes, len)) bullish++;
-    else bearish++;
+// --- Indicator Calculations ---
+function calculateIndicators(candles) {
+  const close = candles.map(c => c.close);
+  const high = candles.map(c => c.high);
+  const low = candles.map(c => c.low);
+  const volume = candles.map(c => c.volume);
+
+  // Helper to safely get last value or NaN if empty
+  const lastValue = (arr) => arr.length ? arr.slice(-1)[0] : NaN;
+
+  const macdRaw = ti.MACD.calculate({
+    values: close,
+    fastPeriod: 3,
+    slowPeriod: 10,
+    signalPeriod: 16,
+    SimpleMAOscillator: false,
+    SimpleMASignal: false
   });
+  const macd = lastValue(macdRaw) || { MACD: 0, signal: 0, histogram: 0 };
 
-  const mood = bullish > bearish ? '🟢 Bullish Majority' :
-               bearish > bullish ? '🔴 Bearish Majority' : '⚪️ Neutral';
+  const bbRaw = ti.BollingerBands.calculate({
+    period: 20,
+    values: close,
+    stdDev: 2
+  });
+  const bb = lastValue(bbRaw) || { upper: 0, middle: 0, lower: 0 };
 
-  const text = `
-📊 ${symbol} ${interval.toUpperCase()} Analysis
-
-💰 Price: $${formatNum(priceRes.data.lastPrice)}
-📈 24h High: $${formatNum(priceRes.data.highPrice)}
-📉 24h Low: $${formatNum(priceRes.data.lowPrice)}
-🔁 Change: ${direction(priceRes.data.lastPrice, priceRes.data.openPrice)} $${formatNum(priceRes.data.priceChange)} (${priceRes.data.priceChangePercent}%)
-💵 Volume: ${formatNum(priceRes.data.volume)}
-🧮 Quote Volume: $${formatNum(priceRes.data.quoteVolume)}
-🔓 Open: $${formatNum(priceRes.data.openPrice)}
-⏰ Close Time: ${new Date(priceRes.data.closeTime).toLocaleString('en-UK')}
-
-${mood}
-
-📊 Simple Moving Averages (SMA):
- - SMA 5: $${sma.sma5}
- - SMA 13: $${sma.sma13}
- - SMA 21: $${sma.sma21}
- - SMA 50: $${sma.sma50}
- - SMA 100: $${sma.sma100}
- - SMA 200: $${sma.sma200}
-
-📈 Exponential Moving Averages (EMA):
- - EMA 5: $${ema.ema5}
- - EMA 13: $${ema.ema13}
- - EMA 21: $${ema.ema21}
- - EMA 50: $${ema.ema50}
- - EMA 100: $${ema.ema100}
- - EMA 200: $${ema.ema200}
-
-⚖️ Weighted Moving Averages (WMA):
- - WMA 5: $${wma.wma5}
- - WMA 13: $${wma.wma13}
- - WMA 21: $${wma.wma21}
- - WMA 50: $${wma.wma50}
- - WMA 100: $${wma.wma100}
-
-📉 MACD:
- - MACD: ${formatNum(macd)}
- - Signal: ${formatNum(signal)}
- - Histogram: ${formatNum(histogram)}
-
-⚡ RSI Alerts:
- - RSI (5): ${rsi5} ${rsi5 > 70 ? '📛 Overbought' : rsi5 < 30 ? '💚 Oversold' : ''}
- - RSI (14): ${rsi14} ${rsi14 > 70 ? '📛 Overbought' : rsi14 < 30 ? '💚 Oversold' : ''}
-  ${rsi5 > rsi14 ? '🔼 RSI Crossover: Bullish' : rsi5 < rsi14 ? '🔽 RSI Crossover: Bearish' : ''}
-
-📣 Powered by Binance API
-  `;
-
-  return text;
-}
-
-// Commands
-bot.onText(/\/(eth|btc|trx|link)(1h|4h)/, async (msg, match) => {
-  const symbol = match[1].toUpperCase() + 'USDT';
-  const interval = match[2];
-  const text = await fetchAnalysis(symbol, interval);
-  bot.sendMessage(msg.chat.id, text);
-});
-
-// ========== INDICATOR FUNCTIONS ========== //
-
-function calcSMA(arr, len) {
-  if (arr.length < len) return 0;
-  const slice = arr.slice(-len);
-  return slice.reduce((a, b) => a + b, 0) / len;
-}
-
-function calcEMA(arr, len) {
-  if (arr.length < len) return 0;
-  const k = 2 / (len + 1);
-  return arr.reduce((prev, curr, i) => i === 0 ? curr : (curr * k + prev * (1 - k)));
-}
-
-function calcWMA(arr, len) {
-  if (arr.length < len) return 0;
-  const weights = Array.from({ length: len }, (_, i) => i + 1);
-  const slice = arr.slice(-len);
-  const weighted = slice.map((v, i) => v * weights[i]);
-  return weighted.reduce((a, b) => a + b) / weights.reduce((a, b) => a + b);
-}
-
-function calcRSI(arr, len) {
-  let gains = 0, losses = 0;
-  for (let i = arr.length - len; i < arr.length - 1; i++) {
-    const change = arr[i + 1] - arr[i];
-    if (change > 0) gains += change;
-    else losses -= change;
-  }
-  const rs = gains / (losses || 1);
-  return formatNum(100 - 100 / (1 + rs));
-}
-
-function calcMACD(arr, fast = 12, slow = 26, signal = 9) {
-  const emaFast = arr.map((_, i) => calcEMA(arr.slice(0, i + 1), fast));
-  const emaSlow = arr.map((_, i) => calcEMA(arr.slice(0, i + 1), slow));
-  const macdLine = emaFast.map((val, i) => val - emaSlow[i]);
-  const signalLine = macdLine.map((_, i) => calcEMA(macdLine.slice(0, i + 1), signal));
-  const histogram = macdLine.map((val, i) => val - signalLine[i]);
   return {
-    macd: macdLine.at(-1),
-    signal: signalLine.at(-1),
-    histogram: histogram.at(-1),
+    sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
+    sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
+    sma21: formatNum(lastValue(ti.SMA.calculate({ period: 21, values: close }))),
+    sma50: formatNum(lastValue(ti.SMA.calculate({ period: 50, values: close }))),
+    sma100: formatNum(lastValue(ti.SMA.calculate({ period: 100, values: close }))),
+    sma200: formatNum(lastValue(ti.SMA.calculate({ period: 200, values: close }))),
+
+    ema5: formatNum(lastValue(ti.EMA.calculate({ period: 5, values: close }))),
+    ema13: formatNum(lastValue(ti.EMA.calculate({ period: 13, values: close }))),
+    ema21: formatNum(lastValue(ti.EMA.calculate({ period: 21, values: close }))),
+    ema50: formatNum(lastValue(ti.EMA.calculate({ period: 50, values: close }))),
+    ema100: formatNum(lastValue(ti.EMA.calculate({ period: 100, values: close }))),
+    ema200: formatNum(lastValue(ti.EMA.calculate({ period: 200, values: close }))),
+
+    wma5: formatNum(lastValue(ti.WMA.calculate({ period: 5, values: close }))),
+    wma13: formatNum(lastValue(ti.WMA.calculate({ period: 13, values: close }))),
+    wma21: formatNum(lastValue(ti.WMA.calculate({ period: 21, values: close }))),
+    wma50: formatNum(lastValue(ti.WMA.calculate({ period: 50, values: close }))),
+    wma100: formatNum(lastValue(ti.WMA.calculate({ period: 100, values: close }))),
+
+    macdValue: formatNum(macd.MACD),
+    macdSignal: formatNum(macd.signal),
+    macdHistogram: formatNum(macd.histogram),
+
+    bbUpper: formatNum(bb.upper),
+    bbMiddle: formatNum(bb.middle),
+    bbLower: formatNum(bb.lower),
+
+    rsi5: formatNum(lastValue(ti.RSI.calculate({ period: 5, values: close }))),
+    rsi14: formatNum(lastValue(ti.RSI.calculate({ period: 14, values: close }))),
   };
 }
+
+// --- Output Message Generator ---
+function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timeframe") {
+  const header = 
+`📊 ${name} ${tfLabel} Analysis
+
+💰 Price: $${formatNum(priceData.lastPrice)}
+📈 24h High: $${formatNum(priceData.highPrice)}
+📉 24h Low: $${formatNum(priceData.lowPrice)}
+🔁 Change: $${formatNum(priceData.priceChange)} (${priceData.priceChangePercent}%)
+🧮 Volume: ${formatNum(priceData.volume)}
+💵 Quote Volume: $${formatNum(priceData.quoteVolume)}
+🔓 Open Price: $${formatNum(priceData.openPrice)}
+⏰ Close Time: ${new Date(priceData.closeTime).toLocaleString('en-UK')}
+
+`;
+
+  const smaSection = 
+`📊 Simple Moving Averages (SMA):
+ - SMA 5: $${indicators.sma5}
+ - SMA 13: $${indicators.sma13}
+ - SMA 21: $${indicators.sma21}
+ - SMA 50: $${indicators.sma50}
+ - SMA 100: $${indicators.sma100}
+ - SMA 200: $${indicators.sma200}
+
+`;
+
+  const emaSection =
+`📈 Exponential Moving Averages (EMA):
+ - EMA 5: $${indicators.ema5}
+ - EMA 13: $${indicators.ema13}
+ - EMA 21: $${indicators.ema21}
+ - EMA 50: $${indicators.ema50}
+ - EMA 100: $${indicators.ema100}
+ - EMA 200: $${indicators.ema200}
+
+`;
+
+  const wmaSection =
+`⚖️ Weighted Moving Averages (WMA):
+ - WMA 5: $${indicators.wma5}
+ - WMA 13: $${indicators.wma13}
+ - WMA 21: $${indicators.wma21}
+ - WMA 50: $${indicators.wma50}
+ - WMA 100: $${indicators.wma100}
+
+`;
+
+  const macdSection =
+`📉 MACD:
+ - MACD: ${indicators.macdValue}
+ - Signal: ${indicators.macdSignal}
+ - Histogram: ${indicators.macdHistogram}
+
+`;
+
+  const bbSection =
+`🎯 Bollinger Bands (20, 2 StdDev):
+ - Upper Band: $${indicators.bbUpper}
+ - Middle Band: $${indicators.bbMiddle}
+ - Lower Band: $${indicators.bbLower}
+
+`;
+
+  const rsiSection =
+`⚡ Relative Strength Index (RSI):
+ - RSI (5): ${indicators.rsi5}
+ - RSI (14): ${indicators.rsi14}
+
+`;
+
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection;
+}
+
+// --- Command Handler ---
+bot.on("text", async (ctx) => {
+  const parsed = parseCommand(ctx.message.text);
+  if (!parsed) return ctx.reply("❌ Invalid format. Try `/eth1h`, `/btc15m`, `/link4h`");
+
+  try {
+    const { symbol, interval } = parsed;
+    const { priceData, candles } = await getBinanceData(symbol, interval);
+    const indicators = calculateIndicators(candles);
+    
+    // Derive friendly names
+    const name = symbol.replace("USDT", "");
+    const tfLabel = interval.toUpperCase();
+    
+    const message = generateOutput(priceData, indicators, name, tfLabel);
+    ctx.reply(message);
+  } catch (error) {
+    console.error(error);
+    ctx.reply("⚠️ Error fetching data. Please try again.");
+  }
+});
+
+// --- Web Server (keep-alive for Render/Heroku) ---
+const app = express();
+app.get("/", (req, res) => res.send("Bot is running"));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  bot.launch();
+});
