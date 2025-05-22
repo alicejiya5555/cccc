@@ -184,8 +184,7 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 `;
 
  const messagesection =
- `⚡ Relative Strength Index (message):
- Calculate and measure these values for best output
+ `⚡ Calculate and measure these values for best output (message):
 📍 Final Signal Summary
 📉 Trend Direction
 🕰 Best UTC Entry & Exit Times
