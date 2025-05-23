@@ -203,6 +203,7 @@ Calculate and measure these values for best output
 🛡 Entry Zone, Take Profit, Stop Loss
 📢 Final Trade Advice (Mindset + Strategy)
 Some Other Information if you can Provide:
+Calculate All other important indicatores position that is not mentioned here but you do,
 🔁 Reversal vs Continuation Clarity
 🧠 Strategy Type Suggestion
 📅 3-Day or Weekly Forecast
