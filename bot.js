@@ -194,6 +194,7 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 `
 Calculate and measure these values for best output
 
+Calculate Values of all other Indicators
 📍 Final Signal Summary
 📉 Trend Direction
 📊 Indicator Behavior Breakdown
@@ -208,8 +209,10 @@ Calculate and measure these values for best output
 🔮 Short-Term & Mid-Term Price Prediction
 🛡 Entry Zone, Take Profit, Stop Loss
 📢 Final Trade Advice (Mindset + Strategy)
+🔵Mostly of the Chances for Hit Tp1 or T2 or T3 suggest 1
+🔵IF I take profit on TP1, or 2, Where should I take my next position
+🔵Chances for go more up or now it's a small or big reserve time
 Some Other Information if you can Provide:
-Calculate All other important indicatores position that is not mentioned here but you do
 🔁 Reversal vs Continuation Clarity
 🧠 Strategy Type Suggestion
 📅 3-Day or Weekly Forecast
