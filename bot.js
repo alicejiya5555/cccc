@@ -135,10 +135,6 @@ function calculateIndicators(candles) {
 const vwap1 = calcVWAP(candles, 1);
 const vwap5 = calcVWAP(candles, 5);
 
-const cci7 = lastValue(ti.CCI.calculate({ high, low, close, period: 7 }));
-  const cci10 = lastValue(ti.CCI.calculate({ high, low, close, period: 10 }));
-  const cci20 = lastValue(ti.CCI.calculate({ high, low, close, period: 20 }));
-
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
     sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
@@ -170,21 +166,17 @@ const cci7 = lastValue(ti.CCI.calculate({ high, low, close, period: 7 }));
 
     rsi5: formatNum(lastValue(ti.RSI.calculate({ period: 5, values: close }))),
     rsi14: formatNum(lastValue(ti.RSI.calculate({ period: 14, values: close }))),
-
     atr14: formatNum(atr),
+
     adx14: formatNum(adx),
     pdi14: formatNum(pdi),
     mdi14: formatNum(mdi),
 
-    stochRsiK: formatNum(stochRsi.k),
-    stochRsiD: formatNum(stochRsi.d),
+    stochRsiK: formatNum(stochK),
+    stochRsiD: formatNum(stochD),
 
     vwap1: formatNum(vwap1),
     vwap5: formatNum(vwap5),
-
-    cci7: formatNum(cci7),
-    cci10: formatNum(cci10),
-    cci20: formatNum(cci20)
   };
 }
 
@@ -287,13 +279,6 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 
 `;
 
-const cciSection =
-`📉 CCI:
-🔹 CCI (7): ${formatNum(indicators.cci.cci7)}
-🔹 CCI (10): ${formatNum(indicators.cci.cci10)}
-🔹 CCI (20): ${formatNum(indicators.cci.cci20)}
-`;
-
   // Your added custom words here:
   const extraNotes =
 `
@@ -324,7 +309,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + atrSection + adxSection + cciSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
