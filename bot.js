@@ -81,6 +81,10 @@ function calcVWAP(candles, period) {
   return vwapArray[vwapArray.length - 1]; // latest VWAP
 }
 
+const high = candles.map(c => parseFloat(c.high));
+const low = candles.map(c => parseFloat(c.low));
+const close = candles.map(c => parseFloat(c.close));
+
   // Helper to safely get last value or NaN if empty
   const lastValue = (arr) => arr.length ? arr.slice(-1)[0] : NaN;
 
@@ -135,6 +139,10 @@ function calcVWAP(candles, period) {
 const vwap1 = calcVWAP(candles, 1);
 const vwap5 = calcVWAP(candles, 5);
 
+const cci7 = CCI.calculate({ period: 7, high, low, close });
+const cci10 = CCI.calculate({ period: 10, high, low, close });
+const cci20 = CCI.calculate({ period: 20, high, low, close });
+
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
     sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
@@ -177,6 +185,10 @@ const vwap5 = calcVWAP(candles, 5);
 
     vwap1: formatNum(vwap1),
     vwap5: formatNum(vwap5),
+
+  cci7: formatNum(cci7[cci7.length - 1]),
+  cci10: formatNum(cci10[cci10.length - 1]),
+  cci20: formatNum(cci20[cci20.length - 1]),
   };
 }
 
@@ -272,6 +284,14 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 
 `;
 
+const cciSection =
+`📉 CCI:
+ - CCI(7): ${indicators.cci7}
+ - CCI(10): ${indicators.cci10}
+ - CCI(20): ${indicators.cci20}
+
+`;
+
   const vwapSection =
 `🔹 VWAP:
  - VWAP(1): ${indicators.vwap1}
@@ -309,7 +329,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + atrSection + adxSection + cciSection + extraNotes;
 }
 
 // --- Command Handler ---
