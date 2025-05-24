@@ -115,6 +115,13 @@ function calculateIndicators(candles) {
     high,
     low
   });
+
+const williamsR = formatNum(lastValue(ti.WilliamsR.calculate({
+    high,
+    low,
+    close,
+    period: 14
+  })));
   const adx = lastValue(adxData)?.adx;
   const pdi = lastValue(adxData)?.pdi;
   const mdi = lastValue(adxData)?.mdi;
@@ -184,12 +191,7 @@ const vwap5 = calcVWAP(candles, 5);
       period: 20
     }))),
 
-const williamsR = formatNum(lastValue(ti.WilliamsR.calculate({
-    high,
-    low,
-    close,
-    period: 14
-  })));
+    williamsR    // Williams %R (14)
 
     adx14: formatNum(adx),
     pdi14: formatNum(pdi),
