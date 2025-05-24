@@ -80,7 +80,6 @@ function calcVWAP(candles, period) {
 
   return vwapArray[vwapArray.length - 1]; // latest VWAP
 }
-
   // Helper to safely get last value or NaN if empty
   const lastValue = (arr) => arr.length ? arr.slice(-1)[0] : NaN;
 
@@ -280,14 +279,6 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 
 `;
 
-const cciSection =
-`📉 CCI:
- - CCI(7): ${indicators.cci7}
- - CCI(10): ${indicators.cci10}
- - CCI(20): ${indicators.cci20}
-
-`;
-
   const vwapSection =
 `🔹 VWAP:
  - VWAP(1): ${indicators.vwap1}
@@ -295,9 +286,15 @@ const cciSection =
 
 `;
 
+const cciSection =
+`📉 CCI:
+ - CCI(7): ${indicators.cci7}
+ - CCI(10): ${indicators.cci10}
+ - CCI(20): ${indicators.cci20}
   // Your added custom words here:
   const extraNotes =
-`
+`;
+
 Calculate and measure these values for best output
 
 Calculate Values of all other Indicators
