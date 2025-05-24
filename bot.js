@@ -11,30 +11,33 @@ const PORT = process.env.PORT || 3000;
 // --- Utility Functions ---
 function parseCommand(command) {
   const cmd = command.toLowerCase().trim();
-  const match = cmd.match(/^\/(\w+)(\d+)(m|h)$/);
+
+  // Regex updated to accept full words or shorthand:
+  // e.g. 15m or 15min or 15mint, 12h or 12hour
+  const match = cmd.match(/^\/(\w+)(\d+)(m|min|mint|h|hour)$/);
   if (!match) return null;
 
-  const [, symbolRaw, intervalNum, intervalUnit] = match;
+  const [, symbolRaw, intervalNum, intervalUnitRaw] = match;
+
   const symbol = symbolRaw === "eth" ? "ETHUSDT"
     : symbolRaw === "btc" ? "BTCUSDT"
     : symbolRaw === "link" ? "LINKUSDT"
     : null;
   if (!symbol) return null;
 
+  // Normalize interval unit:
+  let intervalUnit;
+  if (intervalUnitRaw.startsWith('m')) intervalUnit = 'm';
+  else if (intervalUnitRaw.startsWith('h')) intervalUnit = 'h';
+  else return null;
+
   const interval = `${intervalNum}${intervalUnit}`;
+
   const allowedTimeframes = ["15m", "1h", "4h", "6h", "12h"];
 
   if (!allowedTimeframes.includes(interval)) return null;
 
   return { symbol, interval };
-}
-
-function formatNum(num) {
-  if (num === undefined || num === null || isNaN(num)) return "N/A";
-  return parseFloat(num).toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
 }
 
 // --- Binance Data Fetch ---
