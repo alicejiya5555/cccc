@@ -89,7 +89,7 @@ function calculateIndicators(candles) {
   });
   const atr = lastValue(atrRaw);
 
-  const adxData = ti.ADX.calculate({
+    const adxData = ti.ADX.calculate({
     period: 14,
     close,
     high,
@@ -99,7 +99,6 @@ function calculateIndicators(candles) {
   const adx = lastValue(adxData)?.adx;
   const pdi = lastValue(adxData)?.pdi;
   const mdi = lastValue(adxData)?.mdi;
-  });
 
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
