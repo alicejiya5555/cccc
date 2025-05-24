@@ -287,8 +287,8 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 
 `;
 
-const cciSection = `
-📉 *CCI Indicators*
+const cciSection =
+`📉 CCI:
 🔹 CCI (7): ${formatNum(indicators.cci.cci7)}
 🔹 CCI (10): ${formatNum(indicators.cci.cci10)}
 🔹 CCI (20): ${formatNum(indicators.cci.cci20)}
