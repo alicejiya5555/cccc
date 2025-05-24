@@ -168,6 +168,22 @@ const vwap5 = calcVWAP(candles, 5);
     rsi14: formatNum(lastValue(ti.RSI.calculate({ period: 14, values: close }))),
     atr14: formatNum(atr),
 
+    mfi14: formatNum(lastValue(ti.MFI.calculate({
+      high,
+      low,
+      close,
+      volume,
+      period: 14
+    }))),
+
+    mfi20: formatNum(lastValue(ti.MFI.calculate({
+      high,
+      low,
+      close,
+      volume,
+      period: 20
+    }))),
+
     adx14: formatNum(adx),
     pdi14: formatNum(pdi),
     mdi14: formatNum(mdi),
@@ -279,6 +295,13 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 
 `;
 
+  const mfiSection =
+`💧 Money Flow Index (MFI):
+ - MFI (14): ${indicators.mfi14}
+ - MFI (20): ${indicators.mfi20}
+
+;
+
   // Your added custom words here:
   const extraNotes =
 `
@@ -309,7 +332,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
