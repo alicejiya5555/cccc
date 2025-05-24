@@ -61,6 +61,26 @@ function calculateIndicators(candles) {
   const low = candles.map(c => c.low);
   const volume = candles.map(c => c.volume);
 
+function calcVWAP(candles, period) {
+  let vwapArray = [];
+  for (let i = 0; i <= candles.length - period; i++) {
+    let slice = candles.slice(i, i + period);
+    let cumPV = 0;
+    let cumVol = 0;
+
+    for (let bar of slice) {
+      const typicalPrice = (parseFloat(bar.high) + parseFloat(bar.low) + parseFloat(bar.close)) / 3;
+      const volume = parseFloat(bar.volume);
+      cumPV += typicalPrice * volume;
+      cumVol += volume;
+    }
+
+    vwapArray.push(cumPV / cumVol);
+  }
+
+  return vwapArray[vwapArray.length - 1]; // latest VWAP
+}
+
   // Helper to safely get last value or NaN if empty
   const lastValue = (arr) => arr.length ? arr.slice(-1)[0] : NaN;
 
@@ -112,6 +132,9 @@ function calculateIndicators(candles) {
   const stochK = stochRsi?.k;
   const stochD = stochRsi?.d;
 
+const vwap1 = calcVWAP(candles, 1);
+const vwap5 = calcVWAP(candles, 5);
+
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
     sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
@@ -151,6 +174,9 @@ function calculateIndicators(candles) {
 
     stochRsiK: formatNum(stochK),
     stochRsiD: formatNum(stochD),
+
+    vwap1: formatNum(vwap1),
+    vwap5: formatNum(vwap5),
   };
 }
 
@@ -246,6 +272,13 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 
 `;
 
+  const vwapSection =
+`🔹 VWAP:
+ - VWAP(1): ${indicators.vwap1}
+ - VWAP(5): ${indicators.vwap5}
+
+`;
+
   // Your added custom words here:
   const extraNotes =
 `
@@ -276,7 +309,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
