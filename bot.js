@@ -148,6 +148,14 @@ function getWilliamsR(candles) {
   return williamsR.toFixed(2);
 }
 
+const stoch = Stochastic.calculate({
+  high: high,
+  low: low,
+  close: close,
+  period: 9,
+  signalPeriod: 3
+});
+
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
     sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
@@ -215,6 +223,11 @@ williamsR14: formatNum(lastValue(ti.WilliamsR.calculate({
 
     vwap1: formatNum(vwap1),
     vwap5: formatNum(vwap5),
+
+const lastStoch = stoch.length ? stoch[stoch.length - 1] : { k: 0, d: 0 };
+const kdjK = formatNum(lastStoch.k);
+const kdjD = formatNum(lastStoch.d);
+const kdjJ = formatNum(3 * lastStoch.k - 2 * lastStoch.d);
   };
 }
 
@@ -328,6 +341,13 @@ const williamsSection =
  - Williams %R (14): ${indicators.williamsR14}%
 `;
 
+const kdjSection = 
+`📊 KDJ Indicator:
+ - K (9): ${indicators.kdjK}
+ - D (9): ${indicators.kdjD}
+ - J (9): ${indicators.kdjJ}
+`;
+
   // Your added custom words here:
   const extraNotes =
 `
@@ -358,7 +378,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + williamsSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + williamsSection + kdjSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
