@@ -54,33 +54,6 @@ function calcVWAP(candles, period) {
   return vwapArray[vwapArray.length - 1]; // latest VWAP
 }
 
-// --- Binance Data Fetch ---
-async function getBinanceData(symbol, interval) {
-  const [priceRes, candlesRes] = await Promise.all([
-    axios.get(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`),
-    axios.get(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=200`)
-  ]);
-
-  const priceData = priceRes.data;
-  const candles = candlesRes.data.map(c => ({
-    time: c[0],
-    open: parseFloat(c[1]),
-    high: parseFloat(c[2]),
-    low: parseFloat(c[3]),
-    close: parseFloat(c[4]),
-    volume: parseFloat(c[5])
-  }));
-
-  return { priceData, candles };
-}
-
-// --- Indicator Calculations ---
-function calculateIndicators(candles) {
-  const close = candles.map(c => c.close);
-  const high = candles.map(c => c.high);
-  const low = candles.map(c => c.low);
-  const volume = candles.map(c => c.volume);
-
 function calcCCI(high, low, close, period) {
   const cci = [];
 
@@ -111,6 +84,32 @@ function calcCCI(high, low, close, period) {
 
   return cci;
 }
+// --- Binance Data Fetch ---
+async function getBinanceData(symbol, interval) {
+  const [priceRes, candlesRes] = await Promise.all([
+    axios.get(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`),
+    axios.get(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=200`)
+  ]);
+
+  const priceData = priceRes.data;
+  const candles = candlesRes.data.map(c => ({
+    time: c[0],
+    open: parseFloat(c[1]),
+    high: parseFloat(c[2]),
+    low: parseFloat(c[3]),
+    close: parseFloat(c[4]),
+    volume: parseFloat(c[5])
+  }));
+
+  return { priceData, candles };
+}
+
+// --- Indicator Calculations ---
+function calculateIndicators(candles) {
+  const close = candles.map(c => c.close);
+  const high = candles.map(c => c.high);
+  const low = candles.map(c => c.low);
+  const volume = candles.map(c => c.volume);
 
   // Helper to safely get last value or NaN if empty
   const lastValue = (arr) => arr.length ? arr.slice(-1)[0] : NaN;
