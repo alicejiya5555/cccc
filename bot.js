@@ -81,6 +81,37 @@ function calculateIndicators(candles) {
   const low = candles.map(c => c.low);
   const volume = candles.map(c => c.volume);
 
+function calcCCI(high, low, close, period) {
+  const cci = [];
+
+  for (let i = 0; i < close.length; i++) {
+    if (i < period - 1) {
+      cci.push(NaN);
+      continue;
+    }
+
+    const sliceHigh = high.slice(i - period + 1, i + 1);
+    const sliceLow = low.slice(i - period + 1, i + 1);
+    const sliceClose = close.slice(i - period + 1, i + 1);
+
+    const typicalPrices = sliceHigh.map((h, idx) =>
+      (h + sliceLow[idx] + sliceClose[idx]) / 3
+    );
+
+    const tp = typicalPrices.at(-1);
+    const sma = typicalPrices.reduce((sum, val) => sum + val, 0) / period;
+    const meanDeviation = typicalPrices.reduce(
+      (sum, val) => sum + Math.abs(val - sma),
+      0
+    ) / period;
+
+    const value = meanDeviation === 0 ? 0 : (tp - sma) / (0.015 * meanDeviation);
+    cci.push(value);
+  }
+
+  return cci;
+}
+
   // Helper to safely get last value or NaN if empty
   const lastValue = (arr) => arr.length ? arr.slice(-1)[0] : NaN;
 
@@ -135,6 +166,10 @@ function calculateIndicators(candles) {
 const vwap1 = calcVWAP(candles, 1);
 const vwap5 = calcVWAP(candles, 5);
 
+const cci7 = calcCCI(high, low, close, 7);
+const cci10 = calcCCI(high, low, close, 10);
+const cci20 = calcCCI(high, low, close, 20);
+
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
     sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
@@ -177,6 +212,10 @@ const vwap5 = calcVWAP(candles, 5);
 
     vwap1: formatNum(vwap1),
     vwap5: formatNum(vwap5),
+
+    const lastCCI7 = lastValue(cci7).toFixed(2);
+    const lastCCI10 = lastValue(cci10).toFixed(2);
+    const lastCCI20 = lastValue(cci20).toFixed(2);
   };
 }
 
@@ -279,6 +318,13 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 
 `;
 
+return {
+  // your other indicators...
+  cci7: lastCCI7,
+  cci10: lastCCI10,
+  cci20: lastCCI20,
+};
+
   // Your added custom words here:
   const extraNotes =
 `
@@ -309,7 +355,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + cciSection + vwapSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
