@@ -54,36 +54,6 @@ function calcVWAP(candles, period) {
   return vwapArray[vwapArray.length - 1]; // latest VWAP
 }
 
-function calcCCI(high, low, close, period) {
-  const cci = [];
-
-  for (let i = 0; i < close.length; i++) {
-    if (i < period - 1) {
-      cci.push(NaN);
-      continue;
-    }
-
-    const sliceHigh = high.slice(i - period + 1, i + 1);
-    const sliceLow = low.slice(i - period + 1, i + 1);
-    const sliceClose = close.slice(i - period + 1, i + 1);
-
-    const typicalPrices = sliceHigh.map((h, idx) =>
-      (h + sliceLow[idx] + sliceClose[idx]) / 3
-    );
-
-    const tp = typicalPrices.at(-1);
-    const sma = typicalPrices.reduce((sum, val) => sum + val, 0) / period;
-    const meanDeviation = typicalPrices.reduce(
-      (sum, val) => sum + Math.abs(val - sma),
-      0
-    ) / period;
-
-    const value = meanDeviation === 0 ? 0 : (tp - sma) / (0.015 * meanDeviation);
-    cci.push(value);
-  }
-
-  return cci;
-}
 // --- Binance Data Fetch ---
 async function getBinanceData(symbol, interval) {
   const [priceRes, candlesRes] = await Promise.all([
@@ -131,6 +101,22 @@ function calculateIndicators(candles) {
   });
   const bb = lastValue(bbRaw) || { upper: 0, middle: 0, lower: 0 };
 
+// --- CCI Multiple Periods ---
+  const cci7 = lastValue(ti.CCI.calculate({ high, low, close, period: 7 })) ?? 0;
+  const cci10 = lastValue(ti.CCI.calculate({ high, low, close, period: 10 })) ?? 0;
+  const cci20 = lastValue(ti.CCI.calculate({ high, low, close, period: 20 })) ?? 0;
+
+  return {
+    macd,
+    bb,
+    cci: {
+      cci7,
+      cci10,
+      cci20
+    }
+  };
+}
+
   const atrRaw = ti.ATR.calculate({
     period: 14,
     high,
@@ -165,9 +151,13 @@ function calculateIndicators(candles) {
 const vwap1 = calcVWAP(candles, 1);
 const vwap5 = calcVWAP(candles, 5);
 
-const cci7 = calcCCI(high, low, close, 7);
-const cci10 = calcCCI(high, low, close, 10);
-const cci20 = calcCCI(high, low, close, 20);
+const cci7 = ti.CCI.calculate({ high, low, close, period: 7 });
+const cci10 = ti.CCI.calculate({ high, low, close, period: 10 });
+const cci20 = ti.CCI.calculate({ high, low, close, period: 20 });
+
+const lastCCI7 = cci7.length ? cci7[cci7.length - 1] : NaN;
+const lastCCI10 = cci10.length ? cci10[cci10.length - 1] : NaN;
+const lastCCI20 = cci20.length ? cci20[cci20.length - 1] : NaN;
 
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
@@ -212,9 +202,9 @@ const cci20 = calcCCI(high, low, close, 20);
     vwap1: formatNum(vwap1),
     vwap5: formatNum(vwap5),
 
-    const lastCCI7 = lastValue(cci7).toFixed(2);
-    const lastCCI10 = lastValue(cci10).toFixed(2);
-    const lastCCI20 = lastValue(cci20).toFixed(2);
+CCI(7): ${formatNum(indicators.cci.cci7)}
+CCI(10): ${formatNum(indicators.cci.cci10)}
+CCI(20): ${formatNum(indicators.cci.cci20)}
   };
 }
 
@@ -317,12 +307,12 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 
 `;
 
-return {
-  // your other indicators...
-  cci7: lastCCI7,
-  cci10: lastCCI10,
-  cci20: lastCCI20,
-};
+const cciSection = `
+📉 *CCI Indicators*
+🔹 CCI (7): ${formatNum(indicators.cci.cci7)}
+🔹 CCI (10): ${formatNum(indicators.cci.cci10)}
+🔹 CCI (20): ${formatNum(indicators.cci.cci20)}
+`;
 
   // Your added custom words here:
   const extraNotes =
@@ -354,7 +344,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + cciSection + vwapSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + atrSection + adxSection + cciSection + extraNotes;
 }
 
 // --- Command Handler ---
