@@ -295,12 +295,9 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 
 `;
 
-  const mfiSection =
-`💧 Money Flow Index (MFI):
- - MFI (14): ${indicators.mfi14}
- - MFI (20): ${indicators.mfi20}
-
-;
+ 💧 Money Flow Index (MFI):
+ - MFI (14): 63.22
+ - MFI (20): 59.74
 
   // Your added custom words here:
   const extraNotes =
