@@ -35,7 +35,7 @@ function formatNum(num) {
 async function getBinanceData(symbol, interval) {
   const [priceRes, candlesRes] = await Promise.all([
     axios.get(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`),
-    axios.get(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=300`)
+    axios.get(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=200`)
   ]);
 
   const priceData = priceRes.data;
