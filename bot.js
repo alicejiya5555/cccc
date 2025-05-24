@@ -166,6 +166,7 @@ const vwap5 = calcVWAP(candles, 5);
 
     rsi5: formatNum(lastValue(ti.RSI.calculate({ period: 5, values: close }))),
     rsi14: formatNum(lastValue(ti.RSI.calculate({ period: 14, values: close }))),
+   
     atr14: formatNum(atr),
 
     mfi14: formatNum(lastValue(ti.MFI.calculate({
