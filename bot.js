@@ -34,6 +34,26 @@ function formatNum(num) {
   });
 }
 
+function calcVWAP(candles, period) {
+  let vwapArray = [];
+  for (let i = 0; i <= candles.length - period; i++) {
+    let slice = candles.slice(i, i + period);
+    let cumPV = 0;
+    let cumVol = 0;
+
+    for (let bar of slice) {
+      const typicalPrice = (parseFloat(bar.high) + parseFloat(bar.low) + parseFloat(bar.close)) / 3;
+      const volume = parseFloat(bar.volume);
+      cumPV += typicalPrice * volume;
+      cumVol += volume;
+    }
+
+    vwapArray.push(cumPV / cumVol);
+  }
+
+  return vwapArray[vwapArray.length - 1]; // latest VWAP
+}
+
 // --- Binance Data Fetch ---
 async function getBinanceData(symbol, interval) {
   const [priceRes, candlesRes] = await Promise.all([
@@ -60,25 +80,6 @@ function calculateIndicators(candles) {
   const high = candles.map(c => c.high);
   const low = candles.map(c => c.low);
   const volume = candles.map(c => c.volume);
-
-function calcVWAP(candles, period) {
-  let vwapArray = [];
-  for (let i = 0; i <= candles.length - period; i++) {
-    let slice = candles.slice(i, i + period);
-    let cumPV = 0;
-    let cumVol = 0;
-
-    for (let bar of slice) {
-      const typicalPrice = (parseFloat(bar.high) + parseFloat(bar.low) + parseFloat(bar.close)) / 3;
-      const volume = parseFloat(bar.volume);
-      cumPV += typicalPrice * volume;
-      cumVol += volume;
-    }
-
-    vwapArray.push(cumPV / cumVol);
-  }
-
-  return vwapArray[vwapArray.length - 1]; // latest VWAP
 
   // Helper to safely get last value or NaN if empty
   const lastValue = (arr) => arr.length ? arr.slice(-1)[0] : NaN;
@@ -278,6 +279,9 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 
 `;
 
+  // Your added custom words here:
+  const extraNotes =
+`
 Calculate and measure these values for best output
 
 Calculate Values of all other Indicators
