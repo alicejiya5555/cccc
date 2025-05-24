@@ -133,7 +133,9 @@ function calcVWAP(candles, period) {
 
 const vwap1 = calcVWAP(candles, 1);
 const vwap5 = calcVWAP(candles, 5);
+});
 
+const { CCI } = require("technicalindicators");
 const cci7 = CCI.calculate({ period: 7, high, low, close });
 const cci10 = CCI.calculate({ period: 10, high, low, close });
 const cci20 = CCI.calculate({ period: 20, high, low, close });
