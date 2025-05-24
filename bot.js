@@ -100,6 +100,7 @@ function calculateIndicators(candles) {
   const pdi = lastValue(adxData)?.pdi;
   const mdi = lastValue(adxData)?.mdi;
   });
+
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
     sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
