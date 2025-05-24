@@ -116,12 +116,6 @@ function calculateIndicators(candles) {
     low
   });
 
-const williamsR = formatNum(lastValue(ti.WilliamsR.calculate({
-    high,
-    low,
-    close,
-    period: 14
-  })));
   const adx = lastValue(adxData)?.adx;
   const pdi = lastValue(adxData)?.pdi;
   const mdi = lastValue(adxData)?.mdi;
@@ -190,8 +184,6 @@ const vwap5 = calcVWAP(candles, 5);
       volume,
       period: 20
     }))),
-
-    williamsR    // Williams %R (14)
 
     adx14: formatNum(adx),
     pdi14: formatNum(pdi),
@@ -310,9 +302,6 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
  - MFI (20): ${indicators.mfi20}
 `;
 
-const williamsSection = 
-`📉 Williams %R (14): ${indicators.williamsR}`;
-
   // Your added custom words here:
   const extraNotes =
 `
@@ -343,7 +332,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + mfiSection + williamsSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
