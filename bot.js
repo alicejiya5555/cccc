@@ -13,13 +13,16 @@ function parseCommand(command) {
   const cmd = command.toLowerCase();
   const match = cmd.match(/^\/(\w+)(15m|1h|4h|6h|12h)$/);
   if (!match) return null;
-  const [, symbolRaw, intervalNum, intervalUnit] = match;
+
+  const [, symbolRaw, interval] = match;
+
   const symbol = symbolRaw === "eth" ? "ETHUSDT"
     : symbolRaw === "btc" ? "BTCUSDT"
     : symbolRaw === "link" ? "LINKUSDT"
     : null;
+
   if (!symbol) return null;
-  const interval = `${intervalNum}${intervalUnit}`;
+
   return { symbol, interval };
 }
 
