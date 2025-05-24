@@ -148,14 +148,6 @@ function getWilliamsR(candles) {
   return williamsR.toFixed(2);
 }
 
-const stoch = Stochastic.calculate({
-  high: high,
-  low: low,
-  close: close,
-  period: 9,
-  signalPeriod: 3
-});
-
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
     sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
