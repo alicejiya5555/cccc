@@ -74,6 +74,38 @@ async function getBinanceData(symbol, interval) {
   return { priceData, candles };
 }
 
+// 📊 KDJ (9,3,3) calculation function
+function getKDJ(candles) {
+  const period = 9;
+  const recentCandles = candles.slice(-period);
+
+  const highs = recentCandles.map(c => c.high);
+  const lows = recentCandles.map(c => c.low);
+  const closes = recentCandles.map(c => c.close);
+
+  const highestHigh = Math.max(...highs);
+  const lowestLow = Math.min(...lows);
+  const close = closes[closes.length - 1];
+
+  // Avoid division by zero
+  const denominator = highestHigh - lowestLow;
+  const RSV = denominator === 0 ? 0 : ((close - lowestLow) / denominator) * 100;
+
+  // For simplicity, use fixed previous K, D = 50 (you can improve by caching these)
+  const prevK = 50;
+  const prevD = 50;
+
+  const K = (2 / 3) * prevK + (1 / 3) * RSV;
+  const D = (2 / 3) * prevD + (1 / 3) * K;
+  const J = 3 * K - 2 * D;
+
+  return {
+    k: K.toFixed(2),
+    d: D.toFixed(2),
+    j: J.toFixed(2),
+  };
+}
+
 // --- Indicator Calculations ---
 function calculateIndicators(candles) {
   const close = candles.map(c => c.close);
@@ -148,6 +180,9 @@ function getWilliamsR(candles) {
   return williamsR.toFixed(2);
 }
 
+// 📊 KDJ indicator calculation
+const kdj = getKDJ(candles);
+
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
     sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
@@ -216,10 +251,10 @@ williamsR14: formatNum(lastValue(ti.WilliamsR.calculate({
     vwap1: formatNum(vwap1),
     vwap5: formatNum(vwap5),
 
-const lastStoch = stoch.length ? stoch[stoch.length - 1] : { k: 0, d: 0 };
-const kdjK = formatNum(lastStoch.k);
-const kdjD = formatNum(lastStoch.d);
-const kdjJ = formatNum(3 * lastStoch.k - 2 * lastStoch.d);
+// Add KDJ values here:
+  kdjK: kdj.k,
+  kdjD: kdj.d,
+  kdjJ: kdj.j,
   };
 }
 
@@ -338,6 +373,7 @@ const kdjSection =
  - K (9): ${indicators.kdjK}
  - D (9): ${indicators.kdjD}
  - J (9): ${indicators.kdjJ}
+
 `;
 
   // Your added custom words here:
@@ -370,7 +406,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + williamsSection + kdjSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + kdjSection + williamsSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
