@@ -133,12 +133,6 @@ function calcVWAP(candles, period) {
 
 const vwap1 = calcVWAP(candles, 1);
 const vwap5 = calcVWAP(candles, 5);
-});
-
-const { CCI } = require("technicalindicators");
-const cci7 = CCI.calculate({ period: 7, high, low, close });
-const cci10 = CCI.calculate({ period: 10, high, low, close });
-const cci20 = CCI.calculate({ period: 20, high, low, close });
 
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
@@ -182,10 +176,6 @@ const cci20 = CCI.calculate({ period: 20, high, low, close });
 
     vwap1: formatNum(vwap1),
     vwap5: formatNum(vwap5),
-
-  cci7: formatNum(cci7[cci7.length - 1]),
-  cci10: formatNum(cci10[cci10.length - 1]),
-  cci20: formatNum(cci20[cci20.length - 1]),
   };
 }
 
@@ -286,15 +276,6 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
  - VWAP(1): ${indicators.vwap1}
  - VWAP(5): ${indicators.vwap5}
 
-`;
-
-const cciSection =
-`📉 CCI:
- - CCI(7): ${indicators.cci7}
- - CCI(10): ${indicators.cci10}
- - CCI(20): ${indicators.cci20}
-  // Your added custom words here:
-  const extraNotes =
 `;
 
 Calculate and measure these values for best output
