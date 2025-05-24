@@ -100,6 +100,18 @@ function calculateIndicators(candles) {
   const pdi = lastValue(adxData)?.pdi;
   const mdi = lastValue(adxData)?.mdi;
 
+  const stochRsiData = ti.StochasticRSI.calculate({
+    values: close,
+    rsiPeriod: 14,
+    stochasticPeriod: 14,
+    kPeriod: 3,
+    dPeriod: 3
+  });
+
+  const stochRsi = lastValue(stochRsiData);
+  const stochK = stochRsi?.k;
+  const stochD = stochRsi?.d;
+
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
     sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
@@ -136,6 +148,9 @@ function calculateIndicators(candles) {
     adx14: formatNum(adx),
     pdi14: formatNum(pdi),
     mdi14: formatNum(mdi),
+
+    stochRsiK: formatNum(stochK),
+    stochRsiD: formatNum(stochD),
   };
 }
 
@@ -224,6 +239,13 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
 
 `;
 
+  const stochRsiSection =
+`📉 Stochastic RSI (14,14,3,3):
+ - %K: ${indicators.stochRsiK}
+ - %D: ${indicators.stochRsiD}
+
+`;
+
   // Your added custom words here:
   const extraNotes =
 `
@@ -254,7 +276,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
