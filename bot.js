@@ -80,84 +80,49 @@ function calculateIndicators(candles) {
   const high = candles.map(c => c.high);
   const low = candles.map(c => c.low);
   const volume = candles.map(c => c.volume);
+  const lastValue = arr => arr.length ? arr[arr.length - 1] : NaN;
 
-  // Helper to safely get last value or NaN if empty
-  const lastValue = (arr) => arr.length ? arr.slice(-1)[0] : NaN;
-
-  const macdRaw = ti.MACD.calculate({
+  const macd = lastValue(ti.MACD.calculate({
     values: close,
     fastPeriod: 3,
     slowPeriod: 10,
     signalPeriod: 16,
     SimpleMAOscillator: false,
     SimpleMASignal: false
-  });
-  const macd = lastValue(macdRaw) || { MACD: 0, signal: 0, histogram: 0 };
+  })) || { MACD: 0, signal: 0, histogram: 0 };
 
-  const bbRaw = ti.BollingerBands.calculate({
+  const bb = lastValue(ti.BollingerBands.calculate({
     period: 20,
     values: close,
     stdDev: 2
-  });
-  const bb = lastValue(bbRaw) || { upper: 0, middle: 0, lower: 0 };
+  })) || { upper: 0, middle: 0, lower: 0 };
 
-// --- CCI Multiple Periods ---
-  const cci7 = lastValue(ti.CCI.calculate({ high, low, close, period: 7 })) ?? 0;
-  const cci10 = lastValue(ti.CCI.calculate({ high, low, close, period: 10 })) ?? 0;
-  const cci20 = lastValue(ti.CCI.calculate({ high, low, close, period: 20 })) ?? 0;
-
-  return {
-    macd,
-    bb,
-    cci: {
-      cci7,
-      cci10,
-      cci20
-    }
-  };
-}
-
-  const atrRaw = ti.ATR.calculate({
+  const atr = lastValue(ti.ATR.calculate({
     period: 14,
     high,
     low,
     close
-  });
-  const atr = lastValue(atrRaw);
+  }));
 
-    const adxData = ti.ADX.calculate({
-    period: 14,
-    close,
-    high,
-    low
-  });
-
+  const adxData = ti.ADX.calculate({ period: 14, close, high, low });
   const adx = lastValue(adxData)?.adx;
   const pdi = lastValue(adxData)?.pdi;
   const mdi = lastValue(adxData)?.mdi;
 
-  const stochRsiData = ti.StochasticRSI.calculate({
+  const stochRsi = lastValue(ti.StochasticRSI.calculate({
     values: close,
     rsiPeriod: 14,
     stochasticPeriod: 14,
     kPeriod: 3,
     dPeriod: 3
-  });
+  })) || {};
 
-  const stochRsi = lastValue(stochRsiData);
-  const stochK = stochRsi?.k;
-  const stochD = stochRsi?.d;
+  const cci7 = lastValue(ti.CCI.calculate({ high, low, close, period: 7 }));
+  const cci10 = lastValue(ti.CCI.calculate({ high, low, close, period: 10 }));
+  const cci20 = lastValue(ti.CCI.calculate({ high, low, close, period: 20 }));
 
-const vwap1 = calcVWAP(candles, 1);
-const vwap5 = calcVWAP(candles, 5);
-
-const cci7 = ti.CCI.calculate({ high, low, close, period: 7 });
-const cci10 = ti.CCI.calculate({ high, low, close, period: 10 });
-const cci20 = ti.CCI.calculate({ high, low, close, period: 20 });
-
-const lastCCI7 = cci7.length ? cci7[cci7.length - 1] : NaN;
-const lastCCI10 = cci10.length ? cci10[cci10.length - 1] : NaN;
-const lastCCI20 = cci20.length ? cci20[cci20.length - 1] : NaN;
+  const vwap1 = calcVWAP(candles, 1);
+  const vwap5 = calcVWAP(candles, 5);
 
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
@@ -190,21 +155,21 @@ const lastCCI20 = cci20.length ? cci20[cci20.length - 1] : NaN;
 
     rsi5: formatNum(lastValue(ti.RSI.calculate({ period: 5, values: close }))),
     rsi14: formatNum(lastValue(ti.RSI.calculate({ period: 14, values: close }))),
-    atr14: formatNum(atr),
 
+    atr14: formatNum(atr),
     adx14: formatNum(adx),
     pdi14: formatNum(pdi),
     mdi14: formatNum(mdi),
 
-    stochRsiK: formatNum(stochK),
-    stochRsiD: formatNum(stochD),
+    stochRsiK: formatNum(stochRsi.k),
+    stochRsiD: formatNum(stochRsi.d),
 
     vwap1: formatNum(vwap1),
     vwap5: formatNum(vwap5),
 
-CCI(7): ${formatNum(indicators.cci.cci7)}
-CCI(10): ${formatNum(indicators.cci.cci10)}
-CCI(20): ${formatNum(indicators.cci.cci20)}
+    cci7: formatNum(cci7),
+    cci10: formatNum(cci10),
+    cci20: formatNum(cci20)
   };
 }
 
