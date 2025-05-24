@@ -70,9 +70,6 @@ async function getBinanceData(symbol, interval) {
     close: parseFloat(c[4]),
     volume: parseFloat(c[5])
   }));
-
-const last14 = candles.data.slice(-14);
-const williamsR = calculateWilliamsR(last14);
   
   return { priceData, candles };
 }
