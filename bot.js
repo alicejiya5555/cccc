@@ -115,7 +115,6 @@ function calculateIndicators(candles) {
     high,
     low
   });
-
   const adx = lastValue(adxData)?.adx;
   const pdi = lastValue(adxData)?.pdi;
   const mdi = lastValue(adxData)?.mdi;
