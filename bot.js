@@ -80,6 +80,7 @@ function calcVWAP(candles, period) {
 
   return vwapArray[vwapArray.length - 1]; // latest VWAP
 }
+
   // Helper to safely get last value or NaN if empty
   const lastValue = (arr) => arr.length ? arr.slice(-1)[0] : NaN;
 
