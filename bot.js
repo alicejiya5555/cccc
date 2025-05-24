@@ -81,10 +81,6 @@ function calcVWAP(candles, period) {
   return vwapArray[vwapArray.length - 1]; // latest VWAP
 }
 
-const high = candles.map(c => parseFloat(c.high));
-const low = candles.map(c => parseFloat(c.low));
-const close = candles.map(c => parseFloat(c.close));
-
   // Helper to safely get last value or NaN if empty
   const lastValue = (arr) => arr.length ? arr.slice(-1)[0] : NaN;
 
