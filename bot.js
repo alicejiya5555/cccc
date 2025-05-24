@@ -122,7 +122,7 @@ const williamsR = ti.WilliamsR.calculate({
   close
 });
 const lastWilliamsR = lastValue(williamsR);
-
+});
   const adx = lastValue(adxData)?.adx;
   const pdi = lastValue(adxData)?.pdi;
   const mdi = lastValue(adxData)?.mdi;
@@ -202,7 +202,7 @@ const vwap5 = calcVWAP(candles, 5);
     vwap1: formatNum(vwap1),
     vwap5: formatNum(vwap5),
 
-williamsR14: formatNum(lastWilliamsR),
+   williamsR14: formatNum(lastWilliamsR),
   };
 }
 
