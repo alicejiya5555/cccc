@@ -71,6 +71,9 @@ async function getBinanceData(symbol, interval) {
     volume: parseFloat(c[5])
   }));
 
+const last14 = candles.data.slice(-14);
+const williamsR = calculateWilliamsR(last14);
+  
   return { priceData, candles };
 }
 
@@ -135,6 +138,19 @@ function calculateIndicators(candles) {
 const vwap1 = calcVWAP(candles, 1);
 const vwap5 = calcVWAP(candles, 5);
 
+// 📉 WILLIAMS %R (14)
+function getWilliamsR(candles) {
+  const highs = candles.slice(-14).map(c => parseFloat(c[2]));
+  const lows = candles.slice(-14).map(c => parseFloat(c[3]));
+  const close = parseFloat(candles[candles.length - 1][4]);
+
+  const highestHigh = Math.max(...highs);
+  const lowestLow = Math.min(...lows);
+
+  const williamsR = ((highestHigh - close) / (highestHigh - lowestLow)) * -100;
+  return williamsR.toFixed(2);
+}
+
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
     sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
@@ -184,6 +200,14 @@ const vwap5 = calcVWAP(candles, 5);
       volume,
       period: 20
     }))),
+
+
+williamsR14: formatNum(lastValue(ti.WilliamsR.calculate({
+  period: 14,
+  high: high,
+  low: low,
+  close: close
+}))),
 
     adx14: formatNum(adx),
     pdi14: formatNum(pdi),
@@ -302,6 +326,11 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
  - MFI (20): ${indicators.mfi20}
 `;
 
+const williamsSection =
+`📉 Williams %R Indicator:
+ - Williams %R (14): ${indicators.williamsR14}%
+`;
+
   // Your added custom words here:
   const extraNotes =
 `
@@ -332,7 +361,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + williamsSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
