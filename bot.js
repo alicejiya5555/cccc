@@ -305,7 +305,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + atrSection + adxSection + cciSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
