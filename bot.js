@@ -82,7 +82,7 @@ function calculateIndicators(candles) {
   const volume = candles.map(c => c.volume);
 
   // Helper to safely get last value or NaN if empty
-  const lastValue = (arr) => arr.length ? arr.slice(-1)[0] : NaN;
+  const lastValue = (arr) => arr.length ? arr[arr.length - 1] : NaN;
 
   const macdRaw = ti.MACD.calculate({
     values: close,
@@ -115,6 +115,13 @@ function calculateIndicators(candles) {
     high,
     low
   });
+const williamsR = ti.WilliamsR.calculate({
+  period: 14,
+  high,
+  low,
+  close
+});
+const lastWilliamsR = lastValue(williamsR);
 
   const adx = lastValue(adxData)?.adx;
   const pdi = lastValue(adxData)?.pdi;
@@ -194,6 +201,8 @@ const vwap5 = calcVWAP(candles, 5);
 
     vwap1: formatNum(vwap1),
     vwap5: formatNum(vwap5),
+
+williamsR14: formatNum(lastWilliamsR),
   };
 }
 
@@ -302,6 +311,9 @@ function generateOutput(priceData, indicators, name = "Symbol", tfLabel = "Timef
  - MFI (20): ${indicators.mfi20}
 `;
 
+const WilliamsSection = 
+📉 Williams %R (14): ${indicators.williamsR14} ${williamsSignal}
+
   // Your added custom words here:
   const extraNotes =
 `
@@ -332,7 +344,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + WilliamsSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
