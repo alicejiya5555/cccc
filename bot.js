@@ -74,38 +74,50 @@ async function getBinanceData(symbol, interval) {
   return { priceData, candles };
 }
 
-// 📊 KDJ (9,3,3) calculation function
+// 📊 KDJ (9,3,3) calculation
 function getKDJ(candles) {
   const period = 9;
-  const recentCandles = candles.slice(-period);
+  const kPeriod = 3;
+  const dPeriod = 3;
 
-  const highs = recentCandles.map(c => c.high);
-  const lows = recentCandles.map(c => c.low);
-  const closes = recentCandles.map(c => c.close);
+  const highs = candles.map(c => c.high);
+  const lows = candles.map(c => c.low);
+  const closes = candles.map(c => c.close);
 
-  const highestHigh = Math.max(...highs);
-  const lowestLow = Math.min(...lows);
-  const close = closes[closes.length - 1];
+  const RSV = [];
 
-  // Avoid division by zero
-  const denominator = highestHigh - lowestLow;
-  const RSV = denominator === 0 ? 0 : ((close - lowestLow) / denominator) * 100;
+  for (let i = period - 1; i < closes.length; i++) {
+    const highSlice = highs.slice(i - period + 1, i + 1);
+    const lowSlice = lows.slice(i - period + 1, i + 1);
 
-  // For simplicity, use fixed previous K, D = 50 (you can improve by caching these)
-  const prevK = 50;
-  const prevD = 50;
+    const highestHigh = Math.max(...highSlice);
+    const lowestLow = Math.min(...lowSlice);
 
-  const K = (2 / 3) * prevK + (1 / 3) * RSV;
-  const D = (2 / 3) * prevD + (1 / 3) * K;
-  const J = 3 * K - 2 * D;
+    const rsv = ((closes[i] - lowestLow) / (highestHigh - lowestLow)) * 100;
+    RSV.push(rsv);
+  }
+
+  const K = [];
+  const D = [];
+
+  K[0] = 50;
+  D[0] = 50;
+
+  for (let i = 1; i < RSV.length; i++) {
+    K[i] = (2 / 3) * K[i - 1] + (1 / 3) * RSV[i];
+    D[i] = (2 / 3) * D[i - 1] + (1 / 3) * K[i];
+  }
+
+  const latestK = K[K.length - 1] || 0;
+  const latestD = D[D.length - 1] || 0;
+  const J = 3 * latestK - 2 * latestD;
 
   return {
-    k: K.toFixed(2),
-    d: D.toFixed(2),
+    k: latestK.toFixed(2),
+    d: latestD.toFixed(2),
     j: J.toFixed(2),
   };
 }
-
 // --- Indicator Calculations ---
 function calculateIndicators(candles) {
   const close = candles.map(c => c.close);
