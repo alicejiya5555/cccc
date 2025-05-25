@@ -380,11 +380,11 @@ const williamsSection =
  - Williams %R (14): ${indicators.williamsR14}%
 `;
 
-const kdjSection = 
-`📊 KDJ Indicator:
- - K (9): ${indicators.kdjK}
- - D (9): ${indicators.kdjD}
- - J (9): ${indicators.kdjJ}
+const kdjSection =
+`📊 KDJ (9,3,3):
+ - K: ${indicators.kdjK}
+ - D: ${indicators.kdjD}
+ - J: ${indicators.kdjJ}
 
 `;
 
