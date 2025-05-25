@@ -179,6 +179,11 @@ function calculateIndicators(candles) {
 const vwap1 = calcVWAP(candles, 1);
 const vwap5 = calcVWAP(candles, 5);
 
+const roc14 = lastValue(ti.ROC.calculate({
+  period: 14,
+  values: close
+}));
+
 // 📉 WILLIAMS %R (14)
 function getWilliamsR(candles) {
   const highs = candles.slice(-14).map(c => parseFloat(c[2]));
@@ -292,6 +297,8 @@ williamsR14: formatNum(lastValue(ti.WilliamsR.calculate({
 cci7: formatNum(cci7),
 cci10: formatNum(cci10),
 cci20: formatNum(cci20),
+
+roc14: formatNum(roc14),
   };
 }
 
@@ -421,6 +428,12 @@ const cciSection =
 
 `;
 
+const rocSection =
+`📊 Rate of Change (ROC):
+ - ROC (14): ${indicators.roc14}%
+
+`;
+
   // Your added custom words here:
   const extraNotes =
 `
@@ -451,7 +464,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + kdjSection + williamsSection + cciSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + kdjSection + williamsSection + cciSection + rocSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
