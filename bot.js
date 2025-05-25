@@ -195,6 +195,27 @@ function getWilliamsR(candles) {
 // 📊 KDJ indicator calculation
 const kdj = getKDJ(candles);
 
+const cci7 = lastValue(ti.CCI.calculate({
+  period: 7,
+  high,
+  low,
+  close
+}));
+
+const cci10 = lastValue(ti.CCI.calculate({
+  period: 10,
+  high,
+  low,
+  close
+}));
+
+const cci20 = lastValue(ti.CCI.calculate({
+  period: 20,
+  high,
+  low,
+  close
+}));
+
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
     sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
@@ -267,6 +288,10 @@ williamsR14: formatNum(lastValue(ti.WilliamsR.calculate({
   kdjK: kdj.k,
   kdjD: kdj.d,
   kdjJ: kdj.j,
+
+cci7: formatNum(cci7),
+cci10: formatNum(cci10),
+cci20: formatNum(cci20),
   };
 }
 
@@ -388,6 +413,14 @@ const kdjSection =
 
 `;
 
+const cciSection =
+`📘 Commodity Channel Index (CCI):
+ - CCI (7): ${indicators.cci7}
+ - CCI (10): ${indicators.cci10}
+ - CCI (20): ${indicators.cci20}
+
+`;
+
   // Your added custom words here:
   const extraNotes =
 `
@@ -418,7 +451,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + kdjSection + williamsSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + kdjSection + williamsSection + cciSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
