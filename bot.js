@@ -189,16 +189,6 @@ const mtm7 = lastValue(ti.MOM.calculate({
   values: close
 }));
 
-const mtm14 = lastValue(ti.MOM.calculate({
-  period: 14,
-  values: close
-}));
-
-const mtm21 = lastValue(ti.MOM.calculate({
-  period: 21,
-  values: close
-}));
-
 // 📉 WILLIAMS %R (14)
 function getWilliamsR(candles) {
   const highs = candles.slice(-14).map(c => parseFloat(c[2]));
@@ -314,10 +304,7 @@ cci10: formatNum(cci10),
 cci20: formatNum(cci20),
 
 roc14: formatNum(roc14),
-
 mtm7: formatNum(mtm7),
-mtm14: formatNum(mtm14),
-mtm21: formatNum(mtm21),
   };
 }
 
@@ -456,8 +443,6 @@ const rocSection =
 const mtmSection =
 `🚀 Momentum (MTM):
  - MTM (7): ${indicators.mtm7}
- - MTM (14): ${indicators.mtm14}
- - MTM (21): ${indicators.mtm21}
 
 `;
 
