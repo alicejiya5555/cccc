@@ -4,7 +4,7 @@ import ti from "technicalindicators";
 import express from "express";
 
 // --- Bot Init ---
-const BOT_TOKEN = "7726468556:AAFQbeh4hmom8_4gRRxVzTwOxx5beWdQJB0";
+const BOT_TOKEN = "7726468556:AAFuwTCKyiNGqnens1XYUmTBBf_u2zkqZdQ";
 const bot = new Telegraf(BOT_TOKEN);
 const PORT = process.env.PORT || 3000;
 
@@ -52,6 +52,39 @@ function calcVWAP(candles, period) {
   }
 
   return vwapArray[vwapArray.length - 1]; // latest VWAP
+}
+
+function getKeltnerChannel(candles, emaPeriod = 20, atrPeriod = 14, multiplier = 2) {
+  const close = candles.map(c => c.close);
+  const high = candles.map(c => c.high);
+  const low = candles.map(c => c.low);
+
+  const emaArray = ti.EMA.calculate({ period: emaPeriod, values: close });
+  const atrArray = ti.ATR.calculate({ period: atrPeriod, high, low, close });
+
+  const ema = emaArray.length ? emaArray[emaArray.length - 1] : 0;
+  const atr = atrArray.length ? atrArray[atrArray.length - 1] : 0;
+
+  return {
+    upper: (ema + multiplier * atr).toFixed(2),
+    middle: ema.toFixed(2),
+    lower: (ema - multiplier * atr).toFixed(2)
+  };
+}
+
+// 🔧 EMA Helper Function (required by ADOSC)
+function getEMA(values, period) {
+  const k = 2 / (period + 1);
+  const emaArray = [];
+  let ema = values[0];
+  emaArray.push(ema);
+
+  for (let i = 1; i < values.length; i++) {
+    ema = values[i] * k + ema * (1 - k);
+    emaArray.push(ema);
+  }
+
+  return emaArray;
 }
 
 // --- Binance Data Fetch ---
@@ -118,13 +151,90 @@ function getKDJ(candles) {
     j: J.toFixed(2),
   };
 }
+
+// 📈 MOMENTUM (MTM) - 7, 14, 20
+function getMTM(candles, period) {
+  if (candles.length <= period) return 'N/A';
+
+  const currentClose = candles[candles.length - 1].close;
+  const pastClose = candles[candles.length - 1 - period].close;
+  const mtm = currentClose - pastClose;
+  return mtm.toFixed(2);
+}
+
+// 📉 ADOSC (Accumulation/Distribution Oscillator)
+function getADOSC(candles, fastPeriod = 3, slowPeriod = 10) {
+  if (candles.length < slowPeriod) return NaN;
+
+  const adl = [];
+  let prevAdl = 0;
+
+  for (let i = 0; i < candles.length; i++) {
+    const { high, low, close, volume } = candles[i];
+    const hlDiff = high - low;
+    const clv = hlDiff === 0 ? 0 : ((close - low) - (high - close)) / hlDiff;
+    const moneyFlowVolume = clv * volume;
+    const currentAdl = prevAdl + moneyFlowVolume;
+    adl.push(currentAdl);
+    prevAdl = currentAdl;
+  }
+
+  const fastEMA = getEMA(adl, fastPeriod);
+  const slowEMA = getEMA(adl, slowPeriod);
+
+  if (!fastEMA.length || !slowEMA.length) return NaN;
+
+  const adosc = fastEMA[fastEMA.length - 1] - slowEMA[slowEMA.length - 1];
+  return adosc.toFixed(2);
+}
+
+// 🧭 ULTIMATE OSCILLATOR (7,14,28)
+function getUltimateOscillator(candles) {
+  if (candles.length < 28) return 'N/A';
+
+  const bp = [];
+  const tr = [];
+
+  for (let i = 1; i < candles.length; i++) {
+    const curr = candles[i];
+    const prev = candles[i - 1];
+
+    const high = curr.high;
+    const low = curr.low;
+    const closePrev = prev.close;
+
+    const trueLow = Math.min(low, closePrev);
+    const trueHigh = Math.max(high, closePrev);
+
+    const buyingPressure = curr.close - trueLow;
+    const trueRange = trueHigh - trueLow;
+
+    bp.push(buyingPressure);
+    tr.push(trueRange);
+  }
+
+  function avg(sumArray, period) {
+    const slicedBP = bp.slice(-period);
+    const slicedTR = tr.slice(-period);
+    const sumBP = slicedBP.reduce((a, b) => a + b, 0);
+    const sumTR = slicedTR.reduce((a, b) => a + b, 0);
+    return sumTR === 0 ? 0 : sumBP / sumTR;
+  }
+
+  const avg7 = avg(bp, 7);
+  const avg14 = avg(bp, 14);
+  const avg28 = avg(bp, 28);
+
+  const uo = 100 * ((4 * avg7) + (2 * avg14) + avg28) / 7;
+  return uo.toFixed(2);
+}
 // --- Indicator Calculations ---
 function calculateIndicators(candles) {
   const close = candles.map(c => c.close);
   const high = candles.map(c => c.high);
   const low = candles.map(c => c.low);
   const volume = candles.map(c => c.volume);
-
+const ichimoku = getIchimoku(candles);
   // Helper to safely get last value or NaN if empty
   const lastValue = (arr) => arr.length ? arr.slice(-1)[0] : NaN;
 
@@ -197,6 +307,41 @@ function getWilliamsR(candles) {
   return williamsR.toFixed(2);
 }
 
+// 📉 ICHIMOKU (9, 26, 52)
+function getIchimoku(candles) {
+  const high = candles.map(c => c.high);
+  const low = candles.map(c => c.low);
+
+  const period9 = 9;
+  const period26 = 26;
+  const period52 = 52;
+
+  if (candles.length < period52) {
+    return { conversionLine: 'n/a', baseLine: 'n/a', leadingSpanA: 'n/a', leadingSpanB: 'n/a' };
+  }
+
+  const recentHigh9 = Math.max(...high.slice(-period9));
+  const recentLow9 = Math.min(...low.slice(-period9));
+  const conversionLine = ((recentHigh9 + recentLow9) / 2).toFixed(2);
+
+  const recentHigh26 = Math.max(...high.slice(-period26));
+  const recentLow26 = Math.min(...low.slice(-period26));
+  const baseLine = ((recentHigh26 + recentLow26) / 2).toFixed(2);
+
+  const leadingSpanA = (((parseFloat(conversionLine) + parseFloat(baseLine)) / 2)).toFixed(2);
+
+  const recentHigh52 = Math.max(...high.slice(-period52));
+  const recentLow52 = Math.min(...low.slice(-period52));
+  const leadingSpanB = ((recentHigh52 + recentLow52) / 2).toFixed(2);
+
+  return {
+    conversionLine,
+    baseLine,
+    leadingSpanA,
+    leadingSpanB
+  };
+}
+
 // 📊 KDJ indicator calculation
 const kdj = getKDJ(candles);
 
@@ -221,6 +366,8 @@ const cci20 = lastValue(ti.CCI.calculate({
   close
 }));
 
+const adosc = getADOSC(candles);
+  
   return {
     sma5: formatNum(lastValue(ti.SMA.calculate({ period: 5, values: close }))),
     sma13: formatNum(lastValue(ti.SMA.calculate({ period: 13, values: close }))),
@@ -299,6 +446,22 @@ cci10: formatNum(cci10),
 cci20: formatNum(cci20),
 
 roc14: formatNum(roc14),
+uo: getUltimateOscillator(candles),
+
+mtm7: getMTM(candles, 7),
+mtm14: getMTM(candles, 14),
+mtm20: getMTM(candles, 20),
+
+keltner: getKeltnerChannel(candles),
+
+// other indicators...
+  adosc: isNaN(adosc) ? "N/A" : adosc,
+
+// other indicators...
+  ichimokuConversion: ichimoku.conversionLine,
+  ichimokuBase: ichimoku.baseLine,
+  ichimokuSpanA: ichimoku.leadingSpanA,
+  ichimokuSpanB: ichimoku.leadingSpanB,
   };
 }
 
@@ -434,12 +597,41 @@ const rocSection =
 
 `;
 
+const uoSection =
+`🧭 Ultimate Oscillator:
+ - UO (7,14,28): ${indicators.uo}
+`;
+
+const mtmSection =
+`📈 Momentum (MTM):
+ - MTM (7): ${indicators.mtm7}
+ - MTM (14): ${indicators.mtm14}
+ - MTM (20): ${indicators.mtm20}
+`;
+
+const keltnerSection =
+`📐 Keltner Channel (20 EMA, 2 ATR):
+ - Upper Band: ${indicators.keltner.upper}
+ - Middle EMA: ${indicators.keltner.middle}
+ - Lower Band: ${indicators.keltner.lower}
+`;
+
+const adsocsection = `
+📊 ADOSC: ${indicators.adosc}
+`;
+
+const ichimokuSection = 
+`📊 Ichimoku Cloud:
+ - Conversion Line (9): ${indicators.ichimokuConversion}
+ - Base Line (26): ${indicators.ichimokuBase}
+ - Leading Span A: ${indicators.ichimokuSpanA}
+ - Leading Span B: ${indicators.ichimokuSpanB}
+`;
+
   // Your added custom words here:
   const extraNotes =
 `
-Calculate and measure these values for best output
-
-Calculate Values of all other Indicators
+Calculate Values of all thes Indicatotors and Give me Out Put:
 📍 Final Signal Summary
 📉 Trend Direction
 📊 Indicator Behavior Breakdown
@@ -450,21 +642,25 @@ Calculate Values of all other Indicators
 ⏳ Multi-Timeframe Comparison
 🐋 Whale vs Retail Movement
 🕯 Candle Pattern Alerts
-🕰 Best UTC Entry & Exit Times
+🔵Is there a reversal pattern forming?
+🕰 Best UTC(+07:00) Entry & Exit Times
 🔮 Short-Term & Mid-Term Price Prediction
 🛡 Entry Zone, Take Profit, Stop Loss
-📢 Final Trade Advice (Mindset + Strategy)
 🔵Mostly of the Chances for Hit Tp1 or T2 or T3 suggest 1
 🔵IF I take profit on TP1, or 2, Where should I take my next position
-🔵Chances for go more up or now it's a small or big reserve time
-Some Other Information if you can Provide:
+🛡 Profitable buy and sell Price,
 🔁 Reversal vs Continuation Clarity
+⏳ How many minutes or hours can this signal be used for?
+🧠 Market Behavior is positive, Negative or Neautral.
+🔵 What is the percentage accuracy of this signal?
+📢 Final Trade Advice (Mindset + Strategy)
 🧠 Strategy Type Suggestion
 📅 3-Day or Weekly Forecast
+📅 Is there any news or Update about Crypto that can Effect,
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + kdjSection + williamsSection + cciSection + rocSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
+ return header + smaSection + emaSection + wmaSection + macdSection + rsiSection + stochRsiSection + kdjSection + williamsSection + cciSection + rocSection + mtmSection + uoSection + adxSection + bbSection + keltnerSection + atrSection + adsocsection + mfiSection + vwapSection + ichimokuSection + extraNotes;
 }
 
 // --- Command Handler ---
