@@ -184,15 +184,6 @@ const roc14 = lastValue(ti.ROC.calculate({
   values: close
 }));
 
-const uo = lastValue(ti.UO.calculate({
-  close,
-  high,
-  low,
-  short: 7,
-  medium: 14,
-  long: 28
-}));
-
 // 📉 WILLIAMS %R (14)
 function getWilliamsR(candles) {
   const highs = candles.slice(-14).map(c => parseFloat(c[2]));
@@ -308,8 +299,6 @@ cci10: formatNum(cci10),
 cci20: formatNum(cci20),
 
 roc14: formatNum(roc14),
-
-uo: formatNum(uo),
   };
 }
 
@@ -445,12 +434,6 @@ const rocSection =
 
 `;
 
-const uoSection =
-`🧭 Ultimate Oscillator:
- - UO (7,14,28): ${indicators.uo}
-
-`;
-
   // Your added custom words here:
   const extraNotes =
 `
@@ -481,7 +464,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + kdjSection + williamsSection + cciSection + rocSection + uoSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + kdjSection + williamsSection + cciSection + rocSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
