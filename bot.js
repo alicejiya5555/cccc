@@ -184,6 +184,21 @@ const roc14 = lastValue(ti.ROC.calculate({
   values: close
 }));
 
+const mtm7 = lastValue(ti.MOM.calculate({
+  period: 7,
+  values: close
+}));
+
+const mtm14 = lastValue(ti.MOM.calculate({
+  period: 14,
+  values: close
+}));
+
+const mtm21 = lastValue(ti.MOM.calculate({
+  period: 21,
+  values: close
+}));
+
 // 📉 WILLIAMS %R (14)
 function getWilliamsR(candles) {
   const highs = candles.slice(-14).map(c => parseFloat(c[2]));
@@ -299,6 +314,10 @@ cci10: formatNum(cci10),
 cci20: formatNum(cci20),
 
 roc14: formatNum(roc14),
+
+mtm7: formatNum(mtm7),
+mtm14: formatNum(mtm14),
+mtm21: formatNum(mtm21),
   };
 }
 
@@ -434,6 +453,14 @@ const rocSection =
 
 `;
 
+const mtmSection =
+`🚀 Momentum (MTM):
+ - MTM (7): ${indicators.mtm7}
+ - MTM (14): ${indicators.mtm14}
+ - MTM (21): ${indicators.mtm21}
+
+`;
+
   // Your added custom words here:
   const extraNotes =
 `
@@ -464,7 +491,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + kdjSection + williamsSection + cciSection + rocSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + kdjSection + williamsSection + cciSection + rocSection + mtmSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
