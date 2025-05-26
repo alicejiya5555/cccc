@@ -118,26 +118,6 @@ function getKDJ(candles) {
     j: J.toFixed(2),
   };
 }
-
-const MTMIndicator = {
-  calculate: (prices, periods = [7, 14, 21]) => {
-    if (!Array.isArray(prices) || prices.length === 0) return {};
-
-    const results = {};
-
-    for (let period of periods) {
-      results[`MTM_${period}`] = prices.map((price, i) => {
-        if (i < period) return null;
-        return price - prices[i - period];
-      });
-    }
-
-    return results;
-  }
-};
-
-export default MTMIndicator;
-
 // --- Indicator Calculations ---
 function calculateIndicators(candles) {
   const close = candles.map(c => c.close);
@@ -319,10 +299,6 @@ cci10: formatNum(cci10),
 cci20: formatNum(cci20),
 
 roc14: formatNum(roc14),
-
-mtm7: formatNum(mtm7),
-mtm14: formatNum(mtm14),
-mtm21: formatNum(mtm21),
   };
 }
 
@@ -458,14 +434,6 @@ const rocSection =
 
 `;
 
-const mtmSection =
-`🚀 Momentum (MTM):
- - MTM (7): ${indicators.mtm7}
- - MTM (14): ${indicators.mtm14}
- - MTM (21): ${indicators.mtm21}
-
-`;
-
   // Your added custom words here:
   const extraNotes =
 `
@@ -496,7 +464,7 @@ Some Other Information if you can Provide:
 
 `;
 
-  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + kdjSection + williamsSection + cciSection + rocSection + mtmSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
+  return header + smaSection + emaSection + wmaSection + macdSection + bbSection + rsiSection + stochRsiSection + kdjSection + williamsSection + cciSection + rocSection + vwapSection + mfiSection + atrSection + adxSection + extraNotes;
 }
 
 // --- Command Handler ---
