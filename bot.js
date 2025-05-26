@@ -118,6 +118,26 @@ function getKDJ(candles) {
     j: J.toFixed(2),
   };
 }
+
+const MTMIndicator = {
+  calculate: (prices, periods = [7, 14, 21]) => {
+    if (!Array.isArray(prices) || prices.length === 0) return {};
+
+    const results = {};
+
+    for (let period of periods) {
+      results[`MTM_${period}`] = prices.map((price, i) => {
+        if (i < period) return null;
+        return price - prices[i - period];
+      });
+    }
+
+    return results;
+  }
+};
+
+export default MTMIndicator;
+
 // --- Indicator Calculations ---
 function calculateIndicators(candles) {
   const close = candles.map(c => c.close);
@@ -219,21 +239,6 @@ const cci20 = lastValue(ti.CCI.calculate({
   high,
   low,
   close
-}));
-
-const mtm7 = lastValue(ti.MOM.calculate({
-  period: 7,
-  values: close
-}));
-
-const mtm14 = lastValue(ti.MOM.calculate({
-  period: 14,
-  values: close
-}));
-
-const mtm21 = lastValue(ti.MOM.calculate({
-  period: 21,
-  values: close
 }));
 
   return {
