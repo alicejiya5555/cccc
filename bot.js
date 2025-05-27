@@ -647,8 +647,9 @@ Calculate Values of all thes Indicatotors and Give me Out Put:
 🔮 Short-Term & Mid-Term Price Prediction
 🛡 Entry Zone, Take Profit, Stop Loss
 🔵Mostly of the Chances for Hit Tp1 or T2 or T3 suggest 1
+🎯 Safe Profit Booking Plan:
 🔵IF I take profit on TP1, or 2, Where should I take my next position
-🛡 Profitable buy and sell Price,
+🔁 Re-Buy Range (After Profit Booking)
 🔁 Reversal vs Continuation Clarity
 ⏳ How many minutes or hours can this signal be used for?
 🧠 Market Behavior is positive, Negative or Neautral.
